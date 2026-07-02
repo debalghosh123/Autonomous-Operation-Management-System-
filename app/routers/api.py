@@ -138,3 +138,29 @@ async def send_notification(req: NotificationRequest):
         )
 
         return {"success": success, "type": req.type, "candidate": candidate["name"]}
+
+
+@router.get("/test-groq")
+async def test_groq():
+    """Test if Groq API is working."""
+    from app.services.groq_service import generate_ai_questions
+    from app.config import settings
+    
+    result = {
+        "api_key_set": bool(settings.GROQ_API_KEY),
+        "api_key_prefix": settings.GROQ_API_KEY[:15] + "..." if settings.GROQ_API_KEY else "NOT SET",
+        "model": settings.GROQ_MODEL,
+    }
+    
+    # Try generating just 2 questions
+    try:
+        questions = await generate_ai_questions(2)
+        result["questions_generated"] = len(questions)
+        result["success"] = len(questions) > 0
+        if questions:
+            result["sample_question"] = questions[0]["question_text"][:100]
+    except Exception as e:
+        result["error"] = str(e)
+        result["success"] = False
+    
+    return result
