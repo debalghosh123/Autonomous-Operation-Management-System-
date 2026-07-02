@@ -95,23 +95,46 @@ async def generate_ai_feedback(score: int, total_marks: int, percentage: float,
     if not settings.GROQ_API_KEY:
         return _generate_fallback_feedback(score, total_marks, percentage, topic_performance)
 
-    prompt = f"""You are an expert Python programming evaluator for Career Lab Consulting.
-A candidate just completed their Python evaluation exam.
+    prompt = f"""You are a senior Python engineering mentor at Career Lab Consulting, an elite AI consulting firm in Gurugram, India.
+
+A candidate just completed their Python evaluation exam. Analyze their performance RUTHLESSLY but CONSTRUCTIVELY.
 
 Results:
 - Score: {score}/{total_marks}
 - Percentage: {percentage:.1f}%
-- Pass/Fail: {"PASSED" if percentage >= 90 else "FAILED"} (90% required to qualify)
+- Pass/Fail: {"PASSED - QUALIFIED" if percentage >= 90 else "FAILED - NOT QUALIFIED"} (90% required)
 - Topic Performance: {json.dumps(topic_performance, indent=2)}
 
-Please provide:
-1. A brief performance summary (2-3 sentences)
-2. Strengths identified (based on topics where they scored well)
-3. Areas for improvement (based on topics where they scored poorly)
-4. Specific study recommendations
-5. An encouraging closing message
+Provide a DETAILED, PRODUCTION-FOCUSED evaluation report:
 
-Keep the feedback professional, constructive, and actionable. Format it clearly."""
+## PERFORMANCE VERDICT
+Give a 2-3 sentence brutally honest assessment. Are they production-ready?
+
+## CRITICAL LOOPHOLES IDENTIFIED
+- Pinpoint exact technical gaps that would BREAK production systems
+- Be specific: "Your understanding of X is shallow because..."
+- Identify dangerous misconceptions
+
+## SUBJECTS TO BRUSH UP (Priority Order)
+For EACH weak area, provide:
+1. The topic name
+2. WHY it matters in production
+3. Specific concepts to master
+4. Recommended resources (books/courses)
+
+## PRODUCTION READINESS SCORE
+Rate them: Junior/Mid/Senior/Not Ready
+Explain what level they'd function at in a real Python team.
+
+## 2-WEEK INTENSIVE STUDY PLAN
+Day-by-day plan to fix their gaps:
+- Week 1: Fundamentals they're missing
+- Week 2: Advanced topics & real-world practice
+
+## MOTIVATIONAL CLOSE
+End with honest encouragement. Tell them exactly what stands between them and production-readiness.
+
+Keep it professional, specific, and actionable. No generic advice. This feedback should TRANSFORM their learning path."""
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -128,7 +151,7 @@ Keep the feedback professional, constructive, and actionable. Format it clearly.
                         {"role": "user", "content": prompt},
                     ],
                     "temperature": 0.7,
-                    "max_tokens": 1024,
+                    "max_tokens": 4096,
                 },
             )
             if response.status_code == 200:
