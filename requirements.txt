@@ -6,3 +6,4 @@ pydantic[email]==2.5.2
 httpx==0.25.2
 aiofiles==23.2.1
 python-dotenv==1.0.0
+# v1.1
