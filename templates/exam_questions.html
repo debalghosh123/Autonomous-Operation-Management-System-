@@ -43,22 +43,22 @@
                 </div>
                 <div class="options">
                     <label class="option-label">
-                        <input type="radio" name="question_{{ question.id }}" value="A">
+                        <input type="radio" name="question_{{ loop.index }}" value="A">
                         <span class="option-marker">A</span>
                         <span class="option-text">{{ question.option_a }}</span>
                     </label>
                     <label class="option-label">
-                        <input type="radio" name="question_{{ question.id }}" value="B">
+                        <input type="radio" name="question_{{ loop.index }}" value="B">
                         <span class="option-marker">B</span>
                         <span class="option-text">{{ question.option_b }}</span>
                     </label>
                     <label class="option-label">
-                        <input type="radio" name="question_{{ question.id }}" value="C">
+                        <input type="radio" name="question_{{ loop.index }}" value="C">
                         <span class="option-marker">C</span>
                         <span class="option-text">{{ question.option_c }}</span>
                     </label>
                     <label class="option-label">
-                        <input type="radio" name="question_{{ question.id }}" value="D">
+                        <input type="radio" name="question_{{ loop.index }}" value="D">
                         <span class="option-marker">D</span>
                         <span class="option-text">{{ question.option_d }}</span>
                     </label>

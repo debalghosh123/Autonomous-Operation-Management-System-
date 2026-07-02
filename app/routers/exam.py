@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime
 from app.database import get_db
 from app.config import settings
-from app.services.groq_service import generate_ai_feedback
+from app.services.groq_service import generate_ai_feedback, generate_ai_questions
 from app.services.email_service import send_result_email
 from app.services.whatsapp_service import send_whatsapp_notification
 from app.utils.helpers import calculate_percentage, is_passed
@@ -48,7 +48,7 @@ async def start_exam(request: Request, candidate_id: int):
 
 @router.get("/questions/{exam_id}", response_class=HTMLResponse)
 async def get_questions(request: Request, exam_id: int):
-    """Display exam questions."""
+    """Display exam questions - AI generated via Groq llama3."""
     with get_db() as db:
         exam = db.execute("SELECT * FROM exams WHERE id = ?", (exam_id,)).fetchone()
         if not exam:
@@ -58,17 +58,39 @@ async def get_questions(request: Request, exam_id: int):
             "SELECT * FROM candidates WHERE id = ?", (exam["candidate_id"],)
         ).fetchone()
 
-        questions = db.execute(
-            "SELECT id, question_text, option_a, option_b, option_c, option_d, difficulty, topic, marks FROM questions ORDER BY id LIMIT ?",
-            (settings.TOTAL_QUESTIONS,),
-        ).fetchall()
+        # Try AI-generated questions first
+        ai_questions = await generate_ai_questions(settings.TOTAL_QUESTIONS)
+        
+        if ai_questions:
+            # Store AI questions in database for this exam
+            for i, q in enumerate(ai_questions):
+                db.execute(
+                    """INSERT INTO ai_questions (exam_id, question_number, question_text, 
+                       option_a, option_b, option_c, option_d, correct_answer, difficulty, topic, marks)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (exam_id, i+1, q["question_text"], q["option_a"], q["option_b"],
+                     q["option_c"], q["option_d"], q["correct_answer"],
+                     q.get("difficulty", "advanced"), q.get("topic", "python"), 4)
+                )
+            questions = ai_questions
+            for i, q in enumerate(questions):
+                q["id"] = i + 1
+                q["marks"] = 4
+        else:
+            # Fallback to database questions
+            rows = db.execute(
+                "SELECT id, question_text, option_a, option_b, option_c, option_d, difficulty, topic, marks FROM questions ORDER BY id LIMIT ?",
+                (settings.TOTAL_QUESTIONS,),
+            ).fetchall()
+            questions = [dict(q) for q in rows]
 
         return templates.TemplateResponse("exam_questions.html", {"request": request, 
                 "exam_id": exam_id,
                 "candidate": dict(candidate),
-                "questions": [dict(q) for q in questions],
+                "questions": questions,
                 "total_questions": len(questions),
                 "duration": settings.EXAM_DURATION_MINUTES,
+                "ai_generated": bool(ai_questions),
             },
         )
 
@@ -87,35 +109,66 @@ async def submit_exam(request: Request, exam_id: int):
             "SELECT * FROM candidates WHERE id = ?", (exam["candidate_id"],)
         ).fetchone()
 
-        questions = db.execute(
-            "SELECT * FROM questions ORDER BY id LIMIT ?",
-            (settings.TOTAL_QUESTIONS,),
+        # Check if AI questions exist for this exam
+        ai_qs = db.execute(
+            "SELECT * FROM ai_questions WHERE exam_id = ? ORDER BY question_number",
+            (exam_id,)
         ).fetchall()
 
-        score = 0
-        topic_performance = {}
+        if ai_qs:
+            # Use AI-generated questions
+            questions = [dict(q) for q in ai_qs]
+            score = 0
+            topic_performance = {}
 
-        for question in questions:
-            q_id = str(question["id"])
-            selected = form_data.get(f"question_{q_id}", "")
-            is_correct = 1 if selected.upper() == question["correct_answer"].upper() else 0
+            for i, question in enumerate(questions):
+                q_num = str(i + 1)
+                selected = form_data.get(f"question_{q_num}", "")
+                is_correct = 1 if selected.upper() == question["correct_answer"].upper() else 0
 
-            if is_correct:
-                score += question["marks"]
+                if is_correct:
+                    score += question["marks"]
 
-            # Track topic performance
-            topic = question["topic"]
-            if topic not in topic_performance:
-                topic_performance[topic] = {"correct": 0, "total": 0, "percentage": 0}
-            topic_performance[topic]["total"] += 1
-            if is_correct:
-                topic_performance[topic]["correct"] += 1
+                topic = question.get("topic", "python")
+                if topic not in topic_performance:
+                    topic_performance[topic] = {"correct": 0, "total": 0, "percentage": 0}
+                topic_performance[topic]["total"] += 1
+                if is_correct:
+                    topic_performance[topic]["correct"] += 1
 
-            # Save answer
-            db.execute(
-                "INSERT INTO answers (exam_id, question_id, selected_answer, is_correct) VALUES (?, ?, ?, ?)",
-                (exam_id, question["id"], selected, is_correct),
-            )
+                db.execute(
+                    "INSERT INTO answers (exam_id, question_id, selected_answer, is_correct) VALUES (?, ?, ?, ?)",
+                    (exam_id, question["question_number"], selected, is_correct),
+                )
+        else:
+            # Fallback to database questions
+            questions = db.execute(
+                "SELECT * FROM questions ORDER BY id LIMIT ?",
+                (settings.TOTAL_QUESTIONS,),
+            ).fetchall()
+
+            score = 0
+            topic_performance = {}
+
+            for i, question in enumerate(questions):
+                q_num = str(i + 1)
+                selected = form_data.get(f"question_{q_num}", "")
+                is_correct = 1 if selected.upper() == question["correct_answer"].upper() else 0
+
+                if is_correct:
+                    score += question["marks"]
+
+                topic = question["topic"]
+                if topic not in topic_performance:
+                    topic_performance[topic] = {"correct": 0, "total": 0, "percentage": 0}
+                topic_performance[topic]["total"] += 1
+                if is_correct:
+                    topic_performance[topic]["correct"] += 1
+
+                db.execute(
+                    "INSERT INTO answers (exam_id, question_id, selected_answer, is_correct) VALUES (?, ?, ?, ?)",
+                    (exam_id, question["id"], selected, is_correct),
+                )
 
         # Calculate percentages for topics
         for topic in topic_performance:
