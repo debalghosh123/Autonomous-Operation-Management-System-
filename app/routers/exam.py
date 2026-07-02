@@ -49,6 +49,7 @@ async def start_exam(request: Request, candidate_id: int):
 @router.get("/questions/{exam_id}", response_class=HTMLResponse)
 async def get_questions(request: Request, exam_id: int):
     """Display exam questions - AI generated via Groq llama3."""
+    # First, get exam and candidate info
     with get_db() as db:
         exam = db.execute("SELECT * FROM exams WHERE id = ?", (exam_id,)).fetchone()
         if not exam:
@@ -58,16 +59,20 @@ async def get_questions(request: Request, exam_id: int):
             "SELECT * FROM candidates WHERE id = ?", (exam["candidate_id"],)
         ).fetchone()
 
-        # Try AI-generated questions first
-        ai_questions = []
-        try:
-            ai_questions = await generate_ai_questions(settings.TOTAL_QUESTIONS)
-            print(f"[EXAM] AI generated {len(ai_questions)} questions")
-        except Exception as e:
-            print(f"[EXAM] AI question generation failed: {e}")
-        
-        if ai_questions:
-            # Store AI questions in database for this exam
+    # Generate AI questions OUTSIDE the db context manager
+    print(f"[EXAM] Starting AI question generation for exam {exam_id}")
+    ai_questions = []
+    try:
+        ai_questions = await generate_ai_questions(settings.TOTAL_QUESTIONS)
+        print(f"[EXAM] AI generated {len(ai_questions)} questions successfully")
+    except Exception as e:
+        print(f"[EXAM] AI question generation failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+    if ai_questions:
+        # Store AI questions in database
+        with get_db() as db:
             for i, q in enumerate(ai_questions):
                 try:
                     db.execute(
@@ -80,28 +85,30 @@ async def get_questions(request: Request, exam_id: int):
                     )
                 except Exception as e:
                     print(f"[EXAM] Error storing AI question {i+1}: {e}")
-            questions = ai_questions
-            for i, q in enumerate(questions):
-                q["id"] = i + 1
-                q["marks"] = 4
-                q["difficulty"] = q.get("difficulty", "advanced")
-        else:
-            # Fallback to database questions
+        questions = ai_questions
+        for i, q in enumerate(questions):
+            q["id"] = i + 1
+            q["marks"] = 4
+            q["difficulty"] = q.get("difficulty", "advanced")
+    else:
+        # Fallback to database questions
+        print("[EXAM] WARNING: Using fallback database questions (AI failed)")
+        with get_db() as db:
             rows = db.execute(
                 "SELECT id, question_text, option_a, option_b, option_c, option_d, difficulty, topic, marks FROM questions ORDER BY id LIMIT ?",
                 (settings.TOTAL_QUESTIONS,),
             ).fetchall()
             questions = [dict(q) for q in rows]
 
-        return templates.TemplateResponse("exam_questions.html", {"request": request, 
-                "exam_id": exam_id,
-                "candidate": dict(candidate),
-                "questions": questions,
-                "total_questions": len(questions),
-                "duration": settings.EXAM_DURATION_MINUTES,
-                "ai_generated": bool(ai_questions),
-            },
-        )
+    return templates.TemplateResponse("exam_questions.html", {"request": request, 
+            "exam_id": exam_id,
+            "candidate": dict(candidate),
+            "questions": questions,
+            "total_questions": len(questions),
+            "duration": settings.EXAM_DURATION_MINUTES,
+            "ai_generated": bool(ai_questions),
+        },
+    )
 
 
 @router.post("/submit/{exam_id}")
