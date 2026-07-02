@@ -73,7 +73,7 @@ Make them TRICKY. Include code snippets. {num_questions} questions. ONLY JSON ar
                 questions = json.loads(content)
                 valid = []
                 for q in questions[:num_questions]:
-                    if all(k in q for k in ["question_text", "option_a", "option_b", "option_c", "option_d", "correct_answer"]):
+                    if "question" in str(q).lower() and len(q) >= 4:
                         q.setdefault("difficulty", "advanced")
                         q.setdefault("topic", "python")
                         q.setdefault("marks", 4)
