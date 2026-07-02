@@ -1,0 +1,33 @@
+<!-- Career Lab Consulting - Question Card Component -->
+<div class="question-card" id="question-{{ question.id }}" data-index="{{ index }}">
+    <div class="question-header">
+        <span class="question-number">Question {{ index }}</span>
+        <span class="question-marks">{{ question.marks }} marks</span>
+        <span class="question-difficulty badge-{{ question.difficulty }}">{{ question.difficulty }}</span>
+    </div>
+    <div class="question-text">
+        <p>{{ question.question_text }}</p>
+    </div>
+    <div class="options">
+        <label class="option-label">
+            <input type="radio" name="question_{{ question.id }}" value="A">
+            <span class="option-marker">A</span>
+            <span class="option-text">{{ question.option_a }}</span>
+        </label>
+        <label class="option-label">
+            <input type="radio" name="question_{{ question.id }}" value="B">
+            <span class="option-marker">B</span>
+            <span class="option-text">{{ question.option_b }}</span>
+        </label>
+        <label class="option-label">
+            <input type="radio" name="question_{{ question.id }}" value="C">
+            <span class="option-marker">C</span>
+            <span class="option-text">{{ question.option_c }}</span>
+        </label>
+        <label class="option-label">
+            <input type="radio" name="question_{{ question.id }}" value="D">
+            <span class="option-marker">D</span>
+            <span class="option-text">{{ question.option_d }}</span>
+        </label>
+    </div>
+</div>

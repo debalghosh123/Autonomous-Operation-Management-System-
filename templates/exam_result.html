@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Exam Results - Career Lab Consulting{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="result-container">
+        <div class="result-header {% if passed %}result-passed{% else %}result-failed{% endif %}">
+            {% if passed %}
+            <i class="fas fa-trophy result-icon"></i>
+            <h2>Congratulations, {{ candidate.name }}!</h2>
+            <p>You have QUALIFIED the Python Evaluation</p>
+            {% else %}
+            <i class="fas fa-chart-line result-icon"></i>
+            <h2>Keep Going, {{ candidate.name }}!</h2>
+            <p>You did not meet the qualifying criteria this time</p>
+            {% endif %}
+        </div>
+
+        <div class="result-stats">
+            <div class="stat-card">
+                <div class="stat-value">{{ exam.score }}/{{ exam.total_marks }}</div>
+                <div class="stat-label">Score</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ "%.1f"|format(exam.percentage) }}%</div>
+                <div class="stat-label">Percentage</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ passing_percentage }}%</div>
+                <div class="stat-label">Required</div>
+            </div>
+            <div class="stat-card {% if passed %}stat-pass{% else %}stat-fail{% endif %}">
+                <div class="stat-value">{{ "PASSED" if passed else "FAILED" }}</div>
+                <div class="stat-label">Status</div>
+            </div>
+        </div>
+
+        {% if exam.ai_feedback %}
+        <div class="ai-feedback">
+            <h3><i class="fas fa-robot"></i> AI-Powered Feedback</h3>
+            <div class="feedback-content">
+                {{ exam.ai_feedback | replace('\n', '<br>') | safe }}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="answers-review">
+            <h3><i class="fas fa-list-check"></i> Answer Review</h3>
+            <div class="answers-list">
+                {% for answer in answers %}
+                <div class="answer-item {% if answer.is_correct %}correct{% else %}incorrect{% endif %}">
+                    <span class="answer-q">Q{{ loop.index }}</span>
+                    <span class="answer-topic">{{ answer.topic }}</span>
+                    <span class="answer-given">Your answer: {{ answer.selected_answer or 'Not answered' }}</span>
+                    <span class="answer-correct">Correct: {{ answer.correct_answer }}</span>
+                    <span class="answer-status">
+                        {% if answer.is_correct %}
+                        <i class="fas fa-check-circle"></i>
+                        {% else %}
+                        <i class="fas fa-times-circle"></i>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="result-actions">
+            <a href="/" class="btn btn-primary">
+                <i class="fas fa-home"></i> Back to Home
+            </a>
+            <a href="/register" class="btn btn-outline">
+                <i class="fas fa-redo"></i> Try Again
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

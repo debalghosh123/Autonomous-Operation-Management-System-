@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Start Exam - Career Lab Consulting{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="exam-start-container">
+        <div class="welcome-header">
+            <h2><i class="fas fa-laptop-code"></i> Welcome, {{ candidate.name }}!</h2>
+            <p>You are about to start the Python Evaluation</p>
+        </div>
+
+        <div class="exam-rules">
+            <h3><i class="fas fa-clipboard-list"></i> Exam Instructions</h3>
+            <ul>
+                <li><strong>Total Questions:</strong> {{ total_questions }}</li>
+                <li><strong>Marks per Question:</strong> {{ marks_per_question }}</li>
+                <li><strong>Total Marks:</strong> {{ total_marks }}</li>
+                <li><strong>Passing Percentage:</strong> {{ passing_percentage }}%</li>
+                <li><strong>Duration:</strong> {{ duration }} minutes</li>
+                <li>All questions are multiple choice (A, B, C, D)</li>
+                <li>No negative marking</li>
+                <li>Voice mode available for accessibility</li>
+                <li>AI-powered feedback will be provided after submission</li>
+            </ul>
+        </div>
+
+        <div class="start-actions">
+            <a href="/exam/questions/{{ exam_id }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-play"></i> Begin Exam
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

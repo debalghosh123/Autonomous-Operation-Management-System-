@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Career Lab Consulting{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h2><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h2>
+        <div class="admin-nav">
+            <a href="/admin/dashboard" class="admin-link active">Dashboard</a>
+            <a href="/admin/candidates" class="admin-link">Candidates</a>
+            <a href="/admin/questions" class="admin-link">Questions</a>
+            <a href="/" class="admin-link">Exit Admin</a>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card stat-primary">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-details">
+                <div class="stat-value">{{ total_candidates }}</div>
+                <div class="stat-label">Total Candidates</div>
+            </div>
+        </div>
+        <div class="stat-card stat-success">
+            <div class="stat-icon"><i class="fas fa-file-alt"></i></div>
+            <div class="stat-details">
+                <div class="stat-value">{{ total_exams }}</div>
+                <div class="stat-label">Completed Exams</div>
+            </div>
+        </div>
+        <div class="stat-card stat-info">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-details">
+                <div class="stat-value">{{ passed_exams }}</div>
+                <div class="stat-label">Passed</div>
+            </div>
+        </div>
+        <div class="stat-card stat-warning">
+            <div class="stat-icon"><i class="fas fa-percentage"></i></div>
+            <div class="stat-details">
+                <div class="stat-value">{{ pass_rate }}%</div>
+                <div class="stat-label">Pass Rate</div>
+            </div>
+        </div>
+        <div class="stat-card stat-danger">
+            <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+            <div class="stat-details">
+                <div class="stat-value">{{ failed_exams }}</div>
+                <div class="stat-label">Failed</div>
+            </div>
+        </div>
+        <div class="stat-card stat-secondary">
+            <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+            <div class="stat-details">
+                <div class="stat-value">{{ avg_score }}%</div>
+                <div class="stat-label">Average Score</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-sections">
+        <div class="admin-section">
+            <h3><i class="fas fa-history"></i> Recent Exams</h3>
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Candidate</th>
+                            <th>Email</th>
+                            <th>Score</th>
+                            <th>Percentage</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exam in recent_exams %}
+                        <tr>
+                            <td>{{ exam.id }}</td>
+                            <td>{{ exam.name }}</td>
+                            <td>{{ exam.email }}</td>
+                            <td>{{ exam.score }}/{{ exam.total_marks }}</td>
+                            <td>{{ "%.1f"|format(exam.percentage) }}%</td>
+                            <td>
+                                {% if exam.passed %}
+                                <span class="badge badge-success">Passed</span>
+                                {% else %}
+                                <span class="badge badge-danger">Failed</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="/admin/exam/{{ exam.id }}" class="btn btn-sm">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="admin-section">
+            <h3><i class="fas fa-clipboard-list"></i> Activity Log</h3>
+            <div class="log-list">
+                {% for log in recent_logs %}
+                <div class="log-item">
+                    <span class="log-action">{{ log.action }}</span>
+                    <span class="log-details">{{ log.details }}</span>
+                    <span class="log-time">{{ log.created_at }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

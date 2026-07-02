@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Career Lab Consulting{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="form-container">
+        <div class="form-header">
+            <h2><i class="fas fa-user-plus"></i> Candidate Registration</h2>
+            <p>Register to start your Python evaluation</p>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-error">
+            <i class="fas fa-exclamation-circle"></i> {{ error }}
+        </div>
+        {% endif %}
+
+        <form action="/register" method="POST" class="registration-form">
+            <div class="form-group">
+                <label for="name">
+                    <i class="fas fa-user"></i> Full Name
+                </label>
+                <input type="text" id="name" name="name" required 
+                       placeholder="Enter your full name" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="email">
+                    <i class="fas fa-envelope"></i> Email Address
+                </label>
+                <input type="email" id="email" name="email" required 
+                       placeholder="Enter your email" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="phone">
+                    <i class="fas fa-phone"></i> Phone Number (Optional)
+                </label>
+                <input type="tel" id="phone" name="phone" 
+                       placeholder="For WhatsApp notifications" class="form-control">
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-arrow-right"></i> Register & Start Exam
+            </button>
+        </form>
+
+        <div class="form-footer">
+            <p>Already registered? <a href="/register">Try again with your email</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

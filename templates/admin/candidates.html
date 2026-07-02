@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Candidates - Career Lab Consulting{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h2><i class="fas fa-users"></i> Candidates</h2>
+        <div class="admin-nav">
+            <a href="/admin/dashboard" class="admin-link">Dashboard</a>
+            <a href="/admin/candidates" class="admin-link active">Candidates</a>
+            <a href="/admin/questions" class="admin-link">Questions</a>
+            <a href="/" class="admin-link">Exit Admin</a>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Exams Taken</th>
+                    <th>Best Score</th>
+                    <th>Registered</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for candidate in candidates %}
+                <tr>
+                    <td>{{ candidate.id }}</td>
+                    <td>{{ candidate.name }}</td>
+                    <td>{{ candidate.email }}</td>
+                    <td>{{ candidate.phone or 'N/A' }}</td>
+                    <td>{{ candidate.exam_count }}</td>
+                    <td>
+                        {% if candidate.best_score %}
+                        {{ "%.1f"|format(candidate.best_score) }}%
+                        {% else %}
+                        N/A
+                        {% endif %}
+                    </td>
+                    <td>{{ candidate.registered_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

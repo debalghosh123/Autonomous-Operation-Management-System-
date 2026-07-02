@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Python Evaluation - Career Lab Consulting{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/exam.css">
+{% endblock %}
+
+{% block content %}
+<div class="exam-container">
+    <div class="exam-header">
+        <div class="exam-info-bar">
+            <span class="candidate-name">
+                <i class="fas fa-user"></i> {{ candidate.name }}
+            </span>
+            <span class="timer" id="timer">
+                <i class="fas fa-clock"></i> <span id="time-display">{{ duration }}:00</span>
+            </span>
+            <span class="question-counter" id="question-counter">
+                Q <span id="current-q">1</span>/{{ total_questions }}
+            </span>
+        </div>
+
+        <div class="voice-controls">
+            <button type="button" class="btn btn-voice" id="voice-btn" title="Voice Mode">
+                <i class="fas fa-microphone"></i> Voice Mode
+            </button>
+        </div>
+    </div>
+
+    <form action="/exam/submit/{{ exam_id }}" method="POST" id="exam-form">
+        <div class="questions-wrapper">
+            {% for question in questions %}
+            <div class="question-card {% if loop.first %}active{% endif %}" 
+                 id="question-{{ loop.index }}" data-index="{{ loop.index }}">
+                <div class="question-header">
+                    <span class="question-number">Question {{ loop.index }}</span>
+                    <span class="question-marks">{{ question.marks }} marks</span>
+                    <span class="question-difficulty badge-{{ question.difficulty }}">{{ question.difficulty }}</span>
+                </div>
+                <div class="question-text">
+                    <p>{{ question.question_text }}</p>
+                </div>
+                <div class="options">
+                    <label class="option-label">
+                        <input type="radio" name="question_{{ question.id }}" value="A">
+                        <span class="option-marker">A</span>
+                        <span class="option-text">{{ question.option_a }}</span>
+                    </label>
+                    <label class="option-label">
+                        <input type="radio" name="question_{{ question.id }}" value="B">
+                        <span class="option-marker">B</span>
+                        <span class="option-text">{{ question.option_b }}</span>
+                    </label>
+                    <label class="option-label">
+                        <input type="radio" name="question_{{ question.id }}" value="C">
+                        <span class="option-marker">C</span>
+                        <span class="option-text">{{ question.option_c }}</span>
+                    </label>
+                    <label class="option-label">
+                        <input type="radio" name="question_{{ question.id }}" value="D">
+                        <span class="option-marker">D</span>
+                        <span class="option-text">{{ question.option_d }}</span>
+                    </label>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="exam-navigation">
+            <button type="button" class="btn btn-secondary" id="prev-btn" disabled>
+                <i class="fas fa-arrow-left"></i> Previous
+            </button>
+            <div class="question-dots" id="question-dots">
+                {% for question in questions %}
+                <span class="dot {% if loop.first %}active{% endif %}" data-index="{{ loop.index }}"></span>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn btn-secondary" id="next-btn">
+                Next <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+
+        <div class="submit-section">
+            <button type="submit" class="btn btn-primary btn-lg" id="submit-btn">
+                <i class="fas fa-paper-plane"></i> Submit Exam
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Voice mode overlay -->
+<div class="voice-overlay" id="voice-overlay" style="display: none;">
+    <div class="voice-modal">
+        <h3><i class="fas fa-microphone"></i> Voice Mode Active</h3>
+        <p id="voice-status">Listening...</p>
+        <div class="voice-feedback" id="voice-feedback"></div>
+        <button class="btn btn-danger" id="voice-close">
+            <i class="fas fa-times"></i> Close
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/exam.js"></script>
+<script src="/static/js/voice.js"></script>
+<script>
+    initExam({{ total_questions }}, {{ duration }});
+</script>
+{% endblock %}

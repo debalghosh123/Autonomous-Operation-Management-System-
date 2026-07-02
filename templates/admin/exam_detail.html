@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Exam Detail - Career Lab Consulting{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h2><i class="fas fa-file-alt"></i> Exam #{{ exam.id }} Details</h2>
+        <a href="/admin/dashboard" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="exam-detail-info">
+        <div class="detail-grid">
+            <div class="detail-item">
+                <strong>Candidate:</strong> {{ candidate.name }}
+            </div>
+            <div class="detail-item">
+                <strong>Email:</strong> {{ candidate.email }}
+            </div>
+            <div class="detail-item">
+                <strong>Score:</strong> {{ exam.score }}/{{ exam.total_marks }}
+            </div>
+            <div class="detail-item">
+                <strong>Percentage:</strong> {{ "%.1f"|format(exam.percentage) }}%
+            </div>
+            <div class="detail-item">
+                <strong>Status:</strong> 
+                {% if exam.passed %}
+                <span class="badge badge-success">PASSED</span>
+                {% else %}
+                <span class="badge badge-danger">FAILED</span>
+                {% endif %}
+            </div>
+            <div class="detail-item">
+                <strong>Completed:</strong> {{ exam.completed_at }}
+            </div>
+        </div>
+    </div>
+
+    {% if exam.ai_feedback %}
+    <div class="ai-feedback-section">
+        <h3><i class="fas fa-robot"></i> AI Feedback</h3>
+        <div class="feedback-box">
+            {{ exam.ai_feedback | replace('\n', '<br>') | safe }}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="answers-section">
+        <h3><i class="fas fa-list"></i> Answers</h3>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Question</th>
+                    <th>Topic</th>
+                    <th>Given</th>
+                    <th>Correct</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in answers %}
+                <tr class="{% if a.is_correct %}row-correct{% else %}row-incorrect{% endif %}">
+                    <td>{{ loop.index }}</td>
+                    <td>{{ a.question_text[:60] }}...</td>
+                    <td>{{ a.topic.replace('_', ' ').title() }}</td>
+                    <td>{{ a.selected_answer or '-' }}</td>
+                    <td>{{ a.correct_answer }}</td>
+                    <td>
+                        {% if a.is_correct %}
+                        <i class="fas fa-check-circle text-success"></i>
+                        {% else %}
+                        <i class="fas fa-times-circle text-danger"></i>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

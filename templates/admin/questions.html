@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Questions - Career Lab Consulting{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h2><i class="fas fa-question-circle"></i> Question Bank</h2>
+        <div class="admin-nav">
+            <a href="/admin/dashboard" class="admin-link">Dashboard</a>
+            <a href="/admin/candidates" class="admin-link">Candidates</a>
+            <a href="/admin/questions" class="admin-link active">Questions</a>
+            <a href="/" class="admin-link">Exit Admin</a>
+        </div>
+    </div>
+
+    <div class="questions-summary">
+        <p>Total Questions: <strong>{{ questions|length }}</strong> | 
+           Total Marks: <strong>{{ questions|length * 4 }}</strong></p>
+    </div>
+
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Question</th>
+                    <th>Correct</th>
+                    <th>Difficulty</th>
+                    <th>Topic</th>
+                    <th>Marks</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in questions %}
+                <tr>
+                    <td>{{ q.id }}</td>
+                    <td class="question-cell">{{ q.question_text[:80] }}{% if q.question_text|length > 80 %}...{% endif %}</td>
+                    <td><span class="badge badge-info">{{ q.correct_answer }}</span></td>
+                    <td><span class="badge badge-{{ q.difficulty }}">{{ q.difficulty }}</span></td>
+                    <td>{{ q.topic.replace('_', ' ').title() }}</td>
+                    <td>{{ q.marks }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

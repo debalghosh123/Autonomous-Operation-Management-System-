@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Career Lab Consulting - Python Evaluation System{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-content">
+        <h1 class="hero-title">
+            <span class="gradient-text">Python Evaluation</span> System
+        </h1>
+        <p class="hero-subtitle">
+            AI-Powered Assessment Platform by Career Lab Consulting
+        </p>
+        <div class="hero-features">
+            <div class="feature-card">
+                <i class="fas fa-brain"></i>
+                <h3>AI-Powered Feedback</h3>
+                <p>Get personalized feedback powered by Groq AI</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-clock"></i>
+                <h3>25 Questions</h3>
+                <p>4 marks each, 90% to qualify</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-microphone"></i>
+                <h3>Voice Mode</h3>
+                <p>Accessible voice-controlled exam experience</p>
+            </div>
+        </div>
+        <div class="hero-actions">
+            <a href="/register" class="btn btn-primary btn-lg">
+                <i class="fas fa-rocket"></i> Start Evaluation
+            </a>
+            <a href="/admin/login" class="btn btn-outline btn-lg">
+                <i class="fas fa-shield-alt"></i> Admin Panel
+            </a>
+        </div>
+        <div class="exam-info">
+            <div class="info-item">
+                <strong>Total Questions:</strong> 25
+            </div>
+            <div class="info-item">
+                <strong>Marks per Question:</strong> 4
+            </div>
+            <div class="info-item">
+                <strong>Total Marks:</strong> 100
+            </div>
+            <div class="info-item">
+                <strong>Passing Score:</strong> 90%
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
