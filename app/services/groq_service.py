@@ -8,83 +8,89 @@ import httpx
 from app.config import settings
 
 
+
 async def generate_ai_questions(num_questions: int = 25) -> list:
     """Generate difficult Python questions using Groq AI (llama3)."""
     if not settings.GROQ_API_KEY:
-        print("[GROQ] No API key configured - using fallback questions")
+        print("[GROQ] No API key - fallback")
         return []
-    
-    print(f"[GROQ] Generating {num_questions} questions using model: {settings.GROQ_MODEL}")
 
-    prompt = f"""Generate {num_questions} advanced Python MCQ questions as a JSON array.
-Each question must test DEEP knowledge: metaclasses, GIL, descriptors, asyncio, memory, decorators.
+    print(f"[GROQ] Generating {num_questions} Qs, model: {settings.GROQ_MODEL}")
 
-Format - return ONLY this JSON array, nothing else:
-[{{"question_text":"question here","option_a":"A answer","option_b":"B answer","option_c":"C answer","option_d":"D answer","correct_answer":"B","difficulty":"advanced","topic":"decorators"}}]
+    prompt = f"""Generate {num_questions} advanced Python MCQ questions as JSON array.
+Each tests DEEP knowledge: metaclasses, GIL, descriptors, asyncio, memory, decorators.
+Return ONLY valid JSON: [{{"question_text":"Q","option_a":"A","option_b":"B","option_c":"C","option_d":"D","correct_answer":"B","difficulty":"advanced","topic":"topic"}}]
+Make them TRICKY. Include code snippets. {num_questions} questions. ONLY JSON array."""
 
-Rules:
-- {num_questions} questions total
-- Include Python code in questions
-- Make them TRICKY - test deep understanding
-- correct_answer must be A, B, C, or D
-- Return ONLY valid JSON array"""
+    models_to_try = [settings.GROQ_MODEL, "llama-3.1-8b-instant", "mixtral-8x7b-32768"]
 
-    try:
-        async with httpx.AsyncClient(timeout=90.0) as client:
-            response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.GROQ_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": settings.GROQ_MODEL,
-                    "messages": [
-                        {"role": "system", "content": "You generate Python MCQ questions. Respond with ONLY a valid JSON array. No explanation."},
-                        {"role": "user", "content": prompt},
-                    ],
-                    "temperature": 0.9,
-                    "max_tokens": 8000,
-                },
-            )
-            print(f"[GROQ] API response status: {response.status_code}")
-            if response.status_code == 200:
+    for model in models_to_try:
+        try:
+            print(f"[GROQ] Trying model: {model}")
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                response = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": "Return ONLY valid JSON array. No text."},
+                            {"role": "user", "content": prompt},
+                        ],
+                        "temperature": 0.9,
+                        "max_tokens": 8000,
+                    },
+                )
+                print(f"[GROQ] Status: {response.status_code}")
+
+                if response.status_code != 200:
+                    print(f"[GROQ] Error: {response.text[:300]}")
+                    continue
+
                 data = response.json()
                 content = data["choices"][0]["message"]["content"].strip()
-                print(f"[GROQ] Response length: {len(content)} chars")
-                # Extract JSON from response
+                print(f"[GROQ] Got {len(content)} chars")
+
+                # Parse JSON
                 if "```" in content:
-                    parts = content.split("```")
-                    for part in parts:
-                        if part.strip().startswith("json"):
-                            content = part.strip()[4:].strip()
+                    for part in content.split("```"):
+                        p = part.strip()
+                        if p.startswith("json"):
+                            content = p[4:].strip()
                             break
-                        elif part.strip().startswith("["):
-                            content = part.strip()
+                        elif p.startswith("["):
+                            content = p
                             break
+
                 start = content.find("[")
                 end = content.rfind("]") + 1
-                if start != -1 and end > start:
+                if start >= 0 and end > start:
                     content = content[start:end]
+
                 questions = json.loads(content)
-                # Validate questions
-                valid_questions = []
+                valid = []
                 for q in questions[:num_questions]:
                     if all(k in q for k in ["question_text", "option_a", "option_b", "option_c", "option_d", "correct_answer"]):
                         q.setdefault("difficulty", "advanced")
                         q.setdefault("topic", "python")
                         q.setdefault("marks", 4)
-                        valid_questions.append(q)
-                print(f"[GROQ] Valid questions: {len(valid_questions)}")
-                return valid_questions
-            else:
-                print(f"[GROQ] API error: {response.status_code} - {response.text[:200]}")
-    except Exception as e:
-        print(f"[GROQ] Exception: {e}")
-        import traceback
-        traceback.print_exc()
-    
+                        valid.append(q)
+
+                if valid:
+                    print(f"[GROQ] SUCCESS: {len(valid)} questions generated")
+                    return valid
+                else:
+                    print(f"[GROQ] Parsed 0 valid questions from response")
+
+        except Exception as e:
+            print(f"[GROQ] Exception with {model}: {e}")
+
+    print("[GROQ] ALL MODELS FAILED")
     return []
+
 
 async def generate_ai_feedback(score: int, total_marks: int, percentage: float,
                                 topic_performance: dict) -> str:
