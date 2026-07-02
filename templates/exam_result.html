@@ -1,145 +1,245 @@
 {% extends "base.html" %}
 
-{% block title %}Exam Results - Career Lab Consulting{% endblock %}
+{% block title %}{% if passed %}Qualified{% else %}Evaluation Report{% endif %} - Career Lab Consulting{% endblock %}
+
+{% block head %}
+<style>
+.result-page { padding: 40px 0 80px; min-height: calc(100vh - 70px); }
+.result-hero { text-align: center; padding: 60px 30px; border-radius: 24px; margin-bottom: 32px; position: relative; overflow: hidden; }
+.result-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(59,130,246,0.15) 0%, transparent 70%); pointer-events: none; }
+.result-hero.passed { background: linear-gradient(180deg, rgba(16,185,129,0.08) 0%, var(--card-bg, #1a2332) 100%); border: 1px solid rgba(16,185,129,0.2); }
+.result-hero.failed { background: linear-gradient(180deg, rgba(245,158,11,0.08) 0%, var(--card-bg, #1a2332) 100%); border: 1px solid rgba(245,158,11,0.2); }
+.trophy-wrap { position: relative; display: inline-block; margin-bottom: 20px; }
+.trophy-wrap i { font-size: 72px; position: relative; z-index: 1; }
+.trophy-wrap.passed i { color: #f59e0b; text-shadow: 0 0 40px rgba(245,158,11,0.5); }
+.trophy-wrap.failed i { color: #3b82f6; text-shadow: 0 0 40px rgba(59,130,246,0.5); }
+.trophy-glow { position: absolute; inset: -30px; background: radial-gradient(circle, rgba(245,158,11,0.2), transparent 70%); border-radius: 50%; animation: pulse 2.5s infinite; }
+@keyframes pulse { 0%,100%{transform:scale(1);opacity:0.5} 50%{transform:scale(1.15);opacity:0.8} }
+.result-hero h1 { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
+.result-hero .subtitle { color: #94a3b8; font-size: 16px; margin-bottom: 16px; }
+.status-pill { display: inline-flex; align-items: center; gap: 8px; padding: 10px 24px; border-radius: 50px; font-size: 14px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.status-pill.pass { background: rgba(16,185,129,0.12); color: #10b981; border: 1.5px solid rgba(16,185,129,0.3); }
+.status-pill.fail { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1.5px solid rgba(245,158,11,0.3); }
+
+/* Score Circle */
+.score-section { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; margin: -20px 0 32px; position: relative; z-index: 2; }
+.score-circle { width: 140px; height: 140px; position: relative; }
+.score-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.score-bg { fill: none; stroke: #1e293b; stroke-width: 10; }
+.score-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dasharray 1.5s ease; }
+.score-fill.pass { stroke: #10b981; }
+.score-fill.fail { stroke: #f59e0b; }
+.score-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.score-text .value { font-size: 28px; font-weight: 800; }
+.score-text .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+.score-card { background: var(--card-bg, #1a2332); border: 1px solid #2a3a4a; border-radius: 16px; padding: 24px 32px; text-align: center; min-width: 120px; }
+.score-card .sc-value { font-size: 24px; font-weight: 700; color: #e2e8f0; }
+.score-card .sc-label { font-size: 12px; color: #64748b; margin-top: 4px; }
+
+/* AI Feedback */
+.ai-section { background: var(--card-bg, #1a2332); border: 1px solid #2a3a4a; border-radius: 20px; margin-bottom: 28px; overflow: hidden; }
+.ai-header { background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1)); padding: 20px 28px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2a3a4a; }
+.ai-header .ai-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; color: #3b82f6; }
+.ai-header .ai-title i { font-size: 22px; }
+.ai-header .ai-meta { font-size: 11px; color: #64748b; }
+.ai-body { padding: 32px 28px; line-height: 1.9; color: #cbd5e1; font-size: 15px; }
+.ai-body h3, .ai-body h2 { color: #3b82f6; font-size: 17px; font-weight: 700; margin: 28px 0 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(59,130,246,0.15); display: flex; align-items: center; gap: 8px; }
+.ai-body h3:first-child, .ai-body h2:first-child { margin-top: 0; }
+.ai-body strong { color: #e2e8f0; }
+.ai-body code { background: rgba(59,130,246,0.1); padding: 2px 8px; border-radius: 4px; font-size: 13px; color: #60a5fa; }
+.ai-body ul, .ai-body ol { padding-left: 20px; margin: 8px 0; }
+.ai-body li { margin: 6px 0; }
+
+/* Readiness Meter */
+.meter-section { background: var(--card-bg, #1a2332); border: 1px solid #2a3a4a; border-radius: 20px; padding: 32px; margin-bottom: 28px; }
+.meter-section h3 { font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+.meter-track { height: 20px; background: #0f172a; border-radius: 10px; overflow: hidden; position: relative; border: 1px solid #1e293b; }
+.meter-progress { height: 100%; border-radius: 10px; background: linear-gradient(90deg, #ef4444 0%, #f59e0b 40%, #10b981 100%); transition: width 2s ease; }
+.meter-markers { display: flex; justify-content: space-between; margin-top: 10px; font-size: 11px; color: #64748b; }
+.meter-markers .target { color: #10b981; font-weight: 700; }
+.meter-gap { text-align: center; margin-top: 16px; font-size: 16px; color: #94a3b8; }
+.meter-gap strong { color: #f59e0b; font-size: 20px; }
+
+/* Action Cards */
+.actions-section { margin-bottom: 28px; }
+.actions-section h3 { font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+.actions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.act-card { background: var(--card-bg, #1a2332); border: 1px solid #2a3a4a; border-radius: 16px; padding: 28px 20px; text-align: center; transition: all 0.3s; }
+.act-card:hover { border-color: #3b82f6; transform: translateY(-4px); box-shadow: 0 8px 30px rgba(59,130,246,0.1); }
+.act-card i { font-size: 32px; color: #3b82f6; margin-bottom: 14px; }
+.act-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #e2e8f0; }
+.act-card p { font-size: 13px; color: #64748b; line-height: 1.5; }
+
+/* Answer Review */
+.review-section { background: var(--card-bg, #1a2332); border: 1px solid #2a3a4a; border-radius: 20px; padding: 28px; margin-bottom: 28px; }
+.review-section h3 { font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+.answer-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; margin-bottom: 6px; font-size: 14px; transition: background 0.2s; }
+.answer-row:hover { background: rgba(59,130,246,0.03); }
+.answer-row.correct { border-left: 3px solid #10b981; }
+.answer-row.incorrect { border-left: 3px solid #ef4444; }
+.answer-row .q-num { font-weight: 700; color: #3b82f6; min-width: 36px; }
+.answer-row .q-topic { background: rgba(59,130,246,0.1); color: #60a5fa; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.answer-row .q-yours { color: #94a3b8; margin-left: auto; }
+.answer-row .q-correct { color: #10b981; font-weight: 600; }
+.answer-row .q-status { font-size: 18px; min-width: 24px; text-align: center; }
+
+/* Bottom Section */
+.notif-bar { text-align: center; padding: 16px; background: rgba(59,130,246,0.05); border: 1px solid rgba(59,130,246,0.15); border-radius: 12px; margin-bottom: 24px; }
+.notif-bar p { font-size: 13px; color: #94a3b8; margin: 4px 0; }
+.notif-bar i { color: #3b82f6; }
+.result-btns { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-bottom: 32px; }
+.brand-footer { text-align: center; padding-top: 20px; border-top: 1px solid #1e293b; }
+.brand-footer p { font-size: 12px; color: #475569; }
+
+@media (max-width: 768px) {
+    .score-section { gap: 20px; }
+    .actions-grid { grid-template-columns: 1fr; }
+    .answer-row { flex-wrap: wrap; gap: 6px; }
+    .result-hero h1 { font-size: 24px; }
+}
+</style>
+{% endblock %}
 
 {% block content %}
+<div class="result-page">
 <div class="container">
-    <div class="result-container">
-        <!-- Header Section -->
-        <div class="result-header {% if passed %}result-passed{% else %}result-failed{% endif %}">
+
+    <!-- Hero -->
+    <div class="result-hero {% if passed %}passed{% else %}failed{% endif %}">
+        <div class="trophy-wrap {% if passed %}passed{% else %}failed{% endif %}">
+            <div class="trophy-glow"></div>
             {% if passed %}
-            <div class="result-trophy"><i class="fas fa-trophy"></i></div>
-            <h2>Congratulations, {{ candidate.name }}!</h2>
-            <p class="result-subtitle">You have <strong>QUALIFIED</strong> the Python Evaluation. Our panel has been notified.</p>
-            <span class="result-badge pass-badge"><i class="fas fa-check-circle"></i> PRODUCTION READY</span>
+            <i class="fas fa-trophy"></i>
             {% else %}
-            <div class="result-trophy"><i class="fas fa-microscope"></i></div>
-            <h2>Detailed Analysis for {{ candidate.name }}</h2>
-            <p class="result-subtitle">Your comprehensive performance report and roadmap to production-readiness</p>
-            <span class="result-badge fail-badge"><i class="fas fa-chart-line"></i> IMPROVEMENT NEEDED</span>
+            <i class="fas fa-microscope"></i>
             {% endif %}
         </div>
-
-        <!-- Score Display -->
-        <div class="result-stats">
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-star"></i></div>
-                <div class="stat-value">{{ exam.score }}/{{ exam.total_marks }}</div>
-                <div class="stat-label">Total Score</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-percentage"></i></div>
-                <div class="stat-value">{{ "%.1f"|format(exam.percentage) }}%</div>
-                <div class="stat-label">Percentage</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-bullseye"></i></div>
-                <div class="stat-value">{{ passing_percentage }}%</div>
-                <div class="stat-label">Required</div>
-            </div>
-            <div class="stat-card {% if passed %}stat-pass{% else %}stat-fail{% endif %}">
-                <div class="stat-icon"><i class="fas fa-{% if passed %}check-circle{% else %}exclamation-triangle{% endif %}"></i></div>
-                <div class="stat-value">{{ "QUALIFIED" if passed else "NOT QUALIFIED" }}</div>
-                <div class="stat-label">Status</div>
-            </div>
-        </div>
-
-        <!-- AI Feedback Section - The Star of the Show -->
-        {% if exam.ai_feedback %}
-        <div class="ai-feedback-section">
-            <div class="ai-feedback-header">
-                <div class="ai-badge"><i class="fas fa-robot"></i> AI-Powered Analysis</div>
-                <p>Generated by Llama3 AI - Career Lab Consulting</p>
-            </div>
-            <div class="ai-feedback-body">
-                {{ exam.ai_feedback | replace('\n', '<br>') | replace('## ', '<h3 class="feedback-heading">') | replace('- ', '<span class="feedback-bullet">&#x2022; </span>') | safe }}
-            </div>
-        </div>
+        {% if passed %}
+        <h1>Congratulations, {{ candidate.name }}!</h1>
+        <p class="subtitle">You have successfully <strong>QUALIFIED</strong> the Python Evaluation. Our panel has been notified.</p>
+        <span class="status-pill pass"><i class="fas fa-check-circle"></i> Production Ready</span>
+        {% else %}
+        <h1>Performance Report — {{ candidate.name }}</h1>
+        <p class="subtitle">Comprehensive AI-powered analysis with your personalized roadmap to production-readiness</p>
+        <span class="status-pill fail"><i class="fas fa-chart-line"></i> Improvement Needed</span>
         {% endif %}
+    </div>
 
-        {% if not passed %}
-        <!-- Production Readiness Meter -->
-        <div class="readiness-section">
-            <h3><i class="fas fa-gauge-high"></i> Production Readiness Assessment</h3>
-            <div class="readiness-meter">
-                <div class="meter-bar">
-                    <div class="meter-fill" style="width: {{ exam.percentage }}%"></div>
-                </div>
-                <div class="meter-labels">
-                    <span>Not Ready</span>
-                    <span>Junior</span>
-                    <span>Mid-Level</span>
-                    <span>Senior</span>
-                    <span class="target-label">Target: 90%</span>
-                </div>
-            </div>
-            <p class="readiness-gap">You need <strong>{{ "%.1f"|format(90 - exam.percentage) }}% more</strong> to reach production-ready level.</p>
-        </div>
-
-        <!-- Quick Action Items -->
-        <div class="action-items">
-            <h3><i class="fas fa-bolt"></i> Immediate Action Required</h3>
-            <div class="action-grid">
-                <div class="action-card">
-                    <div class="action-icon"><i class="fas fa-book-skull"></i></div>
-                    <h4>Deep Dive Required</h4>
-                    <p>Review the topics where you scored 0 marks. These are critical production gaps.</p>
-                </div>
-                <div class="action-card">
-                    <div class="action-icon"><i class="fas fa-code"></i></div>
-                    <h4>Hands-On Practice</h4>
-                    <p>Build real projects using the weak areas identified. Theory alone won't make you production-ready.</p>
-                </div>
-                <div class="action-card">
-                    <div class="action-icon"><i class="fas fa-rotate"></i></div>
-                    <h4>Retry in 2 Weeks</h4>
-                    <p>Follow the AI study plan above and retake the evaluation to prove your progress.</p>
-                </div>
+    <!-- Score Display -->
+    <div class="score-section">
+        <div class="score-circle">
+            <svg viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="50" class="score-bg"></circle>
+                <circle cx="60" cy="60" r="50" class="score-fill {% if passed %}pass{% else %}fail{% endif %}" style="stroke-dasharray: {{ exam.percentage * 3.14 }} 314"></circle>
+            </svg>
+            <div class="score-text">
+                <span class="value">{{ "%.0f"|format(exam.percentage) }}%</span>
+                <span class="label">Score</span>
             </div>
         </div>
-        {% endif %}
-
-        <!-- Answer Review -->
-        <div class="answers-review">
-            <h3><i class="fas fa-list-check"></i> Question-by-Question Review</h3>
-            <div class="answers-list">
-                {% for answer in answers %}
-                <div class="answer-item {% if answer.is_correct %}correct{% else %}incorrect{% endif %}">
-                    <span class="answer-q">Q{{ loop.index }}</span>
-                    <span class="answer-topic">{{ answer.topic | replace('_', ' ') | title }}</span>
-                    <span class="answer-given">Yours: <strong>{{ answer.selected_answer or 'Skipped' }}</strong></span>
-                    <span class="answer-correct">Correct: <strong>{{ answer.correct_answer }}</strong></span>
-                    <span class="answer-status">
-                        {% if answer.is_correct %}
-                        <i class="fas fa-check-circle" style="color: #10b981;"></i>
-                        {% else %}
-                        <i class="fas fa-times-circle" style="color: #ef4444;"></i>
-                        {% endif %}
-                    </span>
-                </div>
-                {% endfor %}
-            </div>
+        <div class="score-card">
+            <div class="sc-value">{{ exam.score }}/{{ exam.total_marks }}</div>
+            <div class="sc-label">Marks Obtained</div>
         </div>
-
-        <!-- Notification Confirmation -->
-        <div class="notification-info">
-            <p><i class="fas fa-envelope"></i> Results sent to <strong>{{ candidate.email }}</strong></p>
-            {% if candidate.phone %}
-            <p><i class="fab fa-whatsapp"></i> WhatsApp notification sent to <strong>{{ candidate.phone }}</strong></p>
-            {% endif %}
+        <div class="score-card">
+            <div class="sc-value">{{ passing_percentage }}%</div>
+            <div class="sc-label">Required to Qualify</div>
         </div>
-
-        <!-- Actions -->
-        <div class="result-actions">
-            <a href="/" class="btn btn-primary"><i class="fas fa-home"></i> Back to Home</a>
-            {% if not passed %}
-            <a href="/register" class="btn btn-outline"><i class="fas fa-redo"></i> Retake Evaluation</a>
-            {% endif %}
-        </div>
-
-        <div class="result-footer">
-            <p>Career Lab Consulting | Gurugram, India | AI-Powered Evaluation System</p>
+        <div class="score-card">
+            <div class="sc-value" style="color: {% if passed %}#10b981{% else %}#f59e0b{% endif %}">{{ "QUALIFIED" if passed else "NOT YET" }}</div>
+            <div class="sc-label">Status</div>
         </div>
     </div>
+
+    <!-- AI Feedback -->
+    {% if exam.ai_feedback %}
+    <div class="ai-section">
+        <div class="ai-header">
+            <div class="ai-title"><i class="fas fa-robot"></i> AI-Powered Performance Analysis</div>
+            <div class="ai-meta">Powered by Llama3 AI • Career Lab Consulting</div>
+        </div>
+        <div class="ai-body">
+            {{ exam.ai_feedback | replace('\n\n', '</p><p>') | replace('\n', '<br>') | replace('## ', '</p><h3>') | replace('**', '<strong>') | safe }}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not passed %}
+    <!-- Readiness Meter -->
+    <div class="meter-section">
+        <h3><i class="fas fa-gauge-high" style="color: #f59e0b;"></i> Production Readiness Gauge</h3>
+        <div class="meter-track">
+            <div class="meter-progress" style="width: {{ exam.percentage }}%"></div>
+        </div>
+        <div class="meter-markers">
+            <span>0% Not Ready</span>
+            <span>50% Junior</span>
+            <span>75% Mid-Level</span>
+            <span class="target">90% Senior (Target)</span>
+            <span>100%</span>
+        </div>
+        <p class="meter-gap">Gap to close: <strong>{{ "%.1f"|format(90 - exam.percentage) }}%</strong> more to reach production-ready</p>
+    </div>
+
+    <!-- Action Items -->
+    <div class="actions-section">
+        <h3><i class="fas fa-bolt" style="color: #f59e0b;"></i> Immediate Next Steps</h3>
+        <div class="actions-grid">
+            <div class="act-card">
+                <i class="fas fa-crosshairs"></i>
+                <h4>Fix Critical Gaps</h4>
+                <p>The AI analysis above identifies your exact loopholes. Focus on topics where you scored 0 — those would crash production systems.</p>
+            </div>
+            <div class="act-card">
+                <i class="fas fa-laptop-code"></i>
+                <h4>Build Real Projects</h4>
+                <p>Theory won't save you. Build 2-3 projects using your weak areas. Push to GitHub. Production experience matters.</p>
+            </div>
+            <div class="act-card">
+                <i class="fas fa-calendar-check"></i>
+                <h4>Retry in 14 Days</h4>
+                <p>Follow the AI study plan, practice daily for 2 weeks, then retake. The questions are AI-generated — unique every time.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Answer Review -->
+    <div class="review-section">
+        <h3><i class="fas fa-clipboard-list" style="color: #3b82f6;"></i> Question-by-Question Breakdown</h3>
+        {% for answer in answers %}
+        <div class="answer-row {% if answer.is_correct %}correct{% else %}incorrect{% endif %}">
+            <span class="q-num">Q{{ loop.index }}</span>
+            <span class="q-topic">{{ (answer.topic or 'python') | replace('_', ' ') | title }}</span>
+            <span class="q-yours">Your answer: <strong>{{ answer.selected_answer or '—' }}</strong></span>
+            <span class="q-correct">Correct: <strong>{{ answer.correct_answer }}</strong></span>
+            <span class="q-status">
+                {% if answer.is_correct %}<i class="fas fa-check-circle" style="color:#10b981"></i>{% else %}<i class="fas fa-times-circle" style="color:#ef4444"></i>{% endif %}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Notifications -->
+    <div class="notif-bar">
+        <p><i class="fas fa-envelope"></i> Detailed report sent to <strong>{{ candidate.email }}</strong></p>
+        {% if candidate.phone %}
+        <p><i class="fab fa-whatsapp" style="color:#25D366"></i> WhatsApp notification sent to <strong>{{ candidate.phone }}</strong></p>
+        {% endif %}
+    </div>
+
+    <!-- Buttons -->
+    <div class="result-btns">
+        <a href="/" class="btn btn-primary"><i class="fas fa-home"></i> Back to Home</a>
+        {% if not passed %}
+        <a href="/register" class="btn btn-outline"><i class="fas fa-redo"></i> Retake Evaluation</a>
+        {% endif %}
+    </div>
+
+    <div class="brand-footer">
+        <p><strong>Career Lab Consulting</strong> • Gurugram, India • AI-Powered Python Evaluation System</p>
+    </div>
+
+</div>
 </div>
 {% endblock %}
