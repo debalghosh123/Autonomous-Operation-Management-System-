@@ -162,7 +162,7 @@ async def test_groq():
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "llama-3.3-70b-versatile",
+                    "model": "llama-3.1-8b-instant",
                     "messages": [
                         {"role": "user", "content": "Generate 2 Python MCQ questions as JSON array: [{\"question_text\":\"Q\",\"option_a\":\"A\",\"option_b\":\"B\",\"option_c\":\"C\",\"option_d\":\"D\",\"correct_answer\":\"A\",\"difficulty\":\"advanced\",\"topic\":\"python\"}]. Return ONLY JSON."}
                     ],

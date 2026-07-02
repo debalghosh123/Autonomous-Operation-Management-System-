@@ -22,7 +22,7 @@ Each tests DEEP knowledge: metaclasses, GIL, descriptors, asyncio, memory, decor
 Return ONLY valid JSON: [{{"question_text":"Q","option_a":"A","option_b":"B","option_c":"C","option_d":"D","correct_answer":"B","difficulty":"advanced","topic":"topic"}}]
 Make them TRICKY. Include code snippets. {num_questions} questions. ONLY JSON array."""
 
-    models_to_try = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it", settings.GROQ_MODEL]
+    models_to_try = ["llama-3.1-8b-instant", "gemma2-9b-it", "llama3-70b-8192", "llama-3.3-70b-versatile"]
 
     for model in models_to_try:
         try:
