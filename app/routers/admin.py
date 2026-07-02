@@ -35,9 +35,7 @@ async def admin_dashboard(request: Request):
             "SELECT * FROM admin_logs ORDER BY created_at DESC LIMIT 10"
         ).fetchall()
 
-        return templates.TemplateResponse(
-            request, "admin/dashboard.html",
-            context={
+        return templates.TemplateResponse("admin/dashboard.html", {"request": request, 
                 "total_candidates": total_candidates,
                 "total_exams": total_exams,
                 "passed_exams": passed_exams,
@@ -64,9 +62,7 @@ async def list_candidates(request: Request):
             ORDER BY c.registered_at DESC
         """).fetchall()
 
-        return templates.TemplateResponse(
-            request, "admin/candidates.html",
-            context={"candidates": [dict(c) for c in candidates]},
+        return templates.TemplateResponse("admin/candidates.html", {"request": request, "candidates": [dict(c) for c in candidates]},
         )
 
 
@@ -75,9 +71,7 @@ async def manage_questions(request: Request):
     """Question management page."""
     with get_db() as db:
         questions = db.execute("SELECT * FROM questions ORDER BY id").fetchall()
-        return templates.TemplateResponse(
-            request, "admin/questions.html",
-            context={"questions": [dict(q) for q in questions]},
+        return templates.TemplateResponse("admin/questions.html", {"request": request, "questions": [dict(q) for q in questions]},
         )
 
 
@@ -99,9 +93,7 @@ async def view_exam_detail(request: Request, exam_id: int):
             WHERE a.exam_id = ?
         """, (exam_id,)).fetchall()
 
-        return templates.TemplateResponse(
-            request, "admin/exam_detail.html",
-            context={
+        return templates.TemplateResponse("admin/exam_detail.html", {"request": request, 
                 "exam": dict(exam),
                 "candidate": dict(candidate),
                 "answers": [dict(a) for a in answers],

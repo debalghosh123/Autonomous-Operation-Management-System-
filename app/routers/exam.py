@@ -34,9 +34,7 @@ async def start_exam(request: Request, candidate_id: int):
         )
         exam_id = cursor.lastrowid
 
-        return templates.TemplateResponse(
-            request, "exam_start.html",
-            context={
+        return templates.TemplateResponse("exam_start.html", {"request": request, 
                 "candidate": dict(candidate),
                 "exam_id": exam_id,
                 "total_questions": settings.TOTAL_QUESTIONS,
@@ -65,9 +63,7 @@ async def get_questions(request: Request, exam_id: int):
             (settings.TOTAL_QUESTIONS,),
         ).fetchall()
 
-        return templates.TemplateResponse(
-            request, "exam_questions.html",
-            context={
+        return templates.TemplateResponse("exam_questions.html", {"request": request, 
                 "exam_id": exam_id,
                 "candidate": dict(candidate),
                 "questions": [dict(q) for q in questions],
@@ -185,9 +181,7 @@ async def exam_result(request: Request, exam_id: int):
             (exam_id,),
         ).fetchall()
 
-        return templates.TemplateResponse(
-            request, "exam_result.html",
-            context={
+        return templates.TemplateResponse("exam_result.html", {"request": request, 
                 "exam": dict(exam),
                 "candidate": dict(candidate),
                 "answers": [dict(a) for a in answers],

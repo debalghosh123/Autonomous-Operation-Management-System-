@@ -53,8 +53,8 @@ async def register_candidate(
                 if row:
                     return RedirectResponse(url=f"/exam/start/{row['id']}", status_code=303)
             return templates.TemplateResponse(
-                request, "register.html",
-                context={"error": "Registration failed. Email may already exist."},
+                "register.html",
+                {"request": request, "error": "Registration failed. Email may already exist."},
             )
 
 
@@ -74,6 +74,6 @@ async def admin_login(
     if username == settings.ADMIN_USERNAME and password == settings.ADMIN_PASSWORD:
         return RedirectResponse(url="/admin/dashboard", status_code=303)
     return templates.TemplateResponse(
-        request, "admin/login.html",
-        context={"error": "Invalid credentials"},
+        "admin/login.html",
+        {"request": request, "error": "Invalid credentials"},
     )
