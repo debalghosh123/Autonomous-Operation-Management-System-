@@ -142,8 +142,8 @@ async def send_notification(req: NotificationRequest):
 
 @router.get("/test-groq")
 async def test_groq():
-    """Test if Groq API is working."""
-    from app.services.groq_service import generate_ai_questions
+    """Test if Groq API is working - with full diagnostics."""
+    import httpx
     from app.config import settings
     
     result = {
@@ -152,15 +152,47 @@ async def test_groq():
         "model": settings.GROQ_MODEL,
     }
     
-    # Try generating just 2 questions
+    # Direct API test with simple prompt
     try:
-        questions = await generate_ai_questions(2)
-        result["questions_generated"] = len(questions)
-        result["success"] = len(questions) > 0
-        if questions:
-            result["sample_question"] = questions[0]["question_text"][:100]
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [
+                        {"role": "user", "content": "Generate 2 Python MCQ questions as JSON array: [{\"question_text\":\"Q\",\"option_a\":\"A\",\"option_b\":\"B\",\"option_c\":\"C\",\"option_d\":\"D\",\"correct_answer\":\"A\",\"difficulty\":\"advanced\",\"topic\":\"python\"}]. Return ONLY JSON."}
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 2000,
+                },
+            )
+            result["http_status"] = response.status_code
+            if response.status_code == 200:
+                data = response.json()
+                content = data["choices"][0]["message"]["content"]
+                result["raw_response_first_200"] = content[:200]
+                result["response_length"] = len(content)
+                
+                # Try to parse
+                import json as j
+                try:
+                    start = content.find("[")
+                    end = content.rfind("]") + 1
+                    if start >= 0 and end > start:
+                        parsed = j.loads(content[start:end])
+                        result["parsed_count"] = len(parsed)
+                        result["success"] = True
+                    else:
+                        result["error"] = "No JSON array found in response"
+                except Exception as e:
+                    result["parse_error"] = str(e)
+            else:
+                result["error_body"] = response.text[:300]
     except Exception as e:
-        result["error"] = str(e)
-        result["success"] = False
+        result["exception"] = str(e)
     
     return result
