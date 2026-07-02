@@ -15,13 +15,13 @@ templates = Jinja2Templates(directory="templates")
 @router.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Landing page with Career Lab branding."""
-    return templates.TemplateResponse(request, "index.html")
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
     """Candidate registration page."""
-    return templates.TemplateResponse(request, "register.html")
+    return templates.TemplateResponse("register.html", {"request": request})
 
 
 @router.post("/register")
@@ -61,7 +61,7 @@ async def register_candidate(
 @router.get("/admin/login", response_class=HTMLResponse)
 async def admin_login_page(request: Request):
     """Admin login page."""
-    return templates.TemplateResponse(request, "admin/login.html")
+    return templates.TemplateResponse("admin/login.html", {"request": request})
 
 
 @router.post("/admin/login")
