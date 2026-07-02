@@ -15,39 +15,22 @@ async def generate_ai_questions(num_questions: int = 25) -> list:
         return []
     
     print(f"[GROQ] Generating {num_questions} questions using model: {settings.GROQ_MODEL}")
-    print(f"[GROQ] API Key present: {settings.GROQ_API_KEY[:10]}...")
 
-    prompt = f"""You are a STRICT Python technical interviewer at Career Lab Consulting, an elite AI firm.
+    prompt = f"""Generate {num_questions} advanced Python MCQ questions as a JSON array.
+Each question must test DEEP knowledge: metaclasses, GIL, descriptors, asyncio, memory, decorators.
 
-Generate exactly {num_questions} DIFFICULT multiple-choice Python questions. 
+Format - return ONLY this JSON array, nothing else:
+[{{"question_text":"question here","option_a":"A answer","option_b":"B answer","option_c":"C answer","option_d":"D answer","correct_answer":"B","difficulty":"advanced","topic":"decorators"}}]
 
-Requirements:
-- Questions must be ADVANCED level - test deep understanding, not basics
-- Cover: metaclasses, decorators, generators, GIL, memory management, concurrency, 
-  design patterns, advanced OOP, closures, descriptors, context managers, asyncio,
-  type hints, testing, data structures internals, algorithm complexity
-- Each question has 4 options (A, B, C, D) with exactly ONE correct answer
-- Questions should TRICK candidates who only have surface knowledge
-- Include code snippets in questions where applicable
-
-Return ONLY a valid JSON array with exactly {num_questions} objects:
-[
-  {{
-    "question_text": "What is the output of the following code?\\n\\ndef foo(x=[]):\\n    x.append(1)\\n    return len(x)\\n\\nprint(foo(), foo(), foo())",
-    "option_a": "1 1 1",
-    "option_b": "1 2 3",
-    "option_c": "3 3 3",
-    "option_d": "Error",
-    "correct_answer": "B",
-    "difficulty": "advanced",
-    "topic": "mutable_defaults"
-  }}
-]
-
-Generate {num_questions} questions NOW. Return ONLY the JSON array."""
+Rules:
+- {num_questions} questions total
+- Include Python code in questions
+- Make them TRICKY - test deep understanding
+- correct_answer must be A, B, C, or D
+- Return ONLY valid JSON array"""
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=90.0) as client:
             response = await client.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
@@ -57,28 +40,34 @@ Generate {num_questions} questions NOW. Return ONLY the JSON array."""
                 json={
                     "model": settings.GROQ_MODEL,
                     "messages": [
-                        {"role": "system", "content": "You are an expert Python interviewer. Always respond with valid JSON only. No extra text."},
+                        {"role": "system", "content": "You generate Python MCQ questions. Respond with ONLY a valid JSON array. No explanation."},
                         {"role": "user", "content": prompt},
                     ],
-                    "temperature": 0.8,
+                    "temperature": 0.9,
                     "max_tokens": 8000,
                 },
             )
+            print(f"[GROQ] API response status: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
                 content = data["choices"][0]["message"]["content"].strip()
+                print(f"[GROQ] Response length: {len(content)} chars")
                 # Extract JSON from response
-                if content.startswith("```"):
-                    content = content.split("```")[1]
-                    if content.startswith("json"):
-                        content = content[4:]
-                    content = content.strip()
+                if "```" in content:
+                    parts = content.split("```")
+                    for part in parts:
+                        if part.strip().startswith("json"):
+                            content = part.strip()[4:].strip()
+                            break
+                        elif part.strip().startswith("["):
+                            content = part.strip()
+                            break
                 start = content.find("[")
                 end = content.rfind("]") + 1
                 if start != -1 and end > start:
                     content = content[start:end]
                 questions = json.loads(content)
-                # Ensure all questions have required fields
+                # Validate questions
                 valid_questions = []
                 for q in questions[:num_questions]:
                     if all(k in q for k in ["question_text", "option_a", "option_b", "option_c", "option_d", "correct_answer"]):
@@ -86,14 +75,16 @@ Generate {num_questions} questions NOW. Return ONLY the JSON array."""
                         q.setdefault("topic", "python")
                         q.setdefault("marks", 4)
                         valid_questions.append(q)
+                print(f"[GROQ] Valid questions: {len(valid_questions)}")
                 return valid_questions
-    except (json.JSONDecodeError, KeyError, Exception) as e:
-        print(f"[GROQ] Error generating questions: {e}")
+            else:
+                print(f"[GROQ] API error: {response.status_code} - {response.text[:200]}")
+    except Exception as e:
+        print(f"[GROQ] Exception: {e}")
         import traceback
         traceback.print_exc()
     
     return []
-
 
 async def generate_ai_feedback(score: int, total_marks: int, percentage: float,
                                 topic_performance: dict) -> str:
