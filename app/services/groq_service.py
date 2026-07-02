@@ -11,7 +11,11 @@ from app.config import settings
 async def generate_ai_questions(num_questions: int = 25) -> list:
     """Generate difficult Python questions using Groq AI (llama3)."""
     if not settings.GROQ_API_KEY:
+        print("[GROQ] No API key configured - using fallback questions")
         return []
+    
+    print(f"[GROQ] Generating {num_questions} questions using model: {settings.GROQ_MODEL}")
+    print(f"[GROQ] API Key present: {settings.GROQ_API_KEY[:10]}...")
 
     prompt = f"""You are a STRICT Python technical interviewer at Career Lab Consulting, an elite AI firm.
 
@@ -85,6 +89,8 @@ Generate {num_questions} questions NOW. Return ONLY the JSON array."""
                 return valid_questions
     except (json.JSONDecodeError, KeyError, Exception) as e:
         print(f"[GROQ] Error generating questions: {e}")
+        import traceback
+        traceback.print_exc()
     
     return []
 

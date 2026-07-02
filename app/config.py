@@ -19,7 +19,7 @@ class Settings:
 
     # Groq AI
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama3-8b-8192")
 
     # Email
     SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
