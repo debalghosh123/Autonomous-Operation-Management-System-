@@ -854,3 +854,17 @@ body {
         flex-wrap: wrap;
     }
 }
+
+/* Logo styles */
+.nav-logo {
+    height: 36px;
+    width: auto;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+.footer-logo {
+    height: 28px;
+    width: auto;
+    margin-right: 8px;
+    vertical-align: middle;
+}
