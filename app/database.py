@@ -6,7 +6,7 @@ import sqlite3
 import os
 from contextlib import contextmanager
 
-DATABASE_PATH = os.getenv("DATABASE_PATH", "evaluation.db")
+DATABASE_PATH = os.getenv("DATABASE_PATH", "/tmp/evaluation.db")
 
 
 def get_connection():

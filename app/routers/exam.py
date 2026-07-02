@@ -59,23 +59,32 @@ async def get_questions(request: Request, exam_id: int):
         ).fetchone()
 
         # Try AI-generated questions first
-        ai_questions = await generate_ai_questions(settings.TOTAL_QUESTIONS)
+        ai_questions = []
+        try:
+            ai_questions = await generate_ai_questions(settings.TOTAL_QUESTIONS)
+            print(f"[EXAM] AI generated {len(ai_questions)} questions")
+        except Exception as e:
+            print(f"[EXAM] AI question generation failed: {e}")
         
         if ai_questions:
             # Store AI questions in database for this exam
             for i, q in enumerate(ai_questions):
-                db.execute(
-                    """INSERT INTO ai_questions (exam_id, question_number, question_text, 
-                       option_a, option_b, option_c, option_d, correct_answer, difficulty, topic, marks)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (exam_id, i+1, q["question_text"], q["option_a"], q["option_b"],
-                     q["option_c"], q["option_d"], q["correct_answer"],
-                     q.get("difficulty", "advanced"), q.get("topic", "python"), 4)
-                )
+                try:
+                    db.execute(
+                        """INSERT INTO ai_questions (exam_id, question_number, question_text, 
+                           option_a, option_b, option_c, option_d, correct_answer, difficulty, topic, marks)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (exam_id, i+1, q["question_text"], q["option_a"], q["option_b"],
+                         q["option_c"], q["option_d"], q["correct_answer"],
+                         q.get("difficulty", "advanced"), q.get("topic", "python"), 4)
+                    )
+                except Exception as e:
+                    print(f"[EXAM] Error storing AI question {i+1}: {e}")
             questions = ai_questions
             for i, q in enumerate(questions):
                 q["id"] = i + 1
                 q["marks"] = 4
+                q["difficulty"] = q.get("difficulty", "advanced")
         else:
             # Fallback to database questions
             rows = db.execute(
