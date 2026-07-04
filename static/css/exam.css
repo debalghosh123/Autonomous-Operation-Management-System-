@@ -35,6 +35,41 @@
     color: #ff4444;
 }
 
+/* Per-question timer styles */
+.per-question-timer {
+    font-size: 1.3rem;
+    padding: 0.6rem 1.2rem;
+    min-width: 100px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.per-question-timer.timer-warning {
+    background: rgba(255, 187, 51, 0.2);
+    border-color: rgba(255, 187, 51, 0.5);
+    color: #ffbb33;
+    animation: pulse-warning 1s infinite;
+}
+
+.per-question-timer.timer-critical {
+    background: rgba(255, 68, 68, 0.3);
+    border-color: rgba(255, 68, 68, 0.7);
+    color: #ff4444;
+    animation: pulse-critical 0.5s infinite;
+    font-size: 1.5rem;
+    transform: scale(1.05);
+}
+
+@keyframes pulse-warning {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes pulse-critical {
+    0%, 100% { opacity: 1; transform: scale(1.05); }
+    50% { opacity: 0.8; transform: scale(1.1); }
+}
+
 .candidate-name {
     color: var(--accent-primary);
     font-weight: 500;
@@ -102,6 +137,7 @@
 .badge-easy { background: rgba(0, 255, 136, 0.15); color: #00ff88; }
 .badge-medium { background: rgba(255, 187, 51, 0.15); color: #ffbb33; }
 .badge-hard { background: rgba(255, 68, 68, 0.15); color: #ff4444; }
+.badge-advanced { background: rgba(138, 43, 226, 0.15); color: #bb86fc; }
 
 .question-text {
     font-size: 1.1rem;
@@ -212,6 +248,202 @@
     padding: 1rem;
 }
 
+/* Camera Overlay (top-right corner during exam) */
+.camera-overlay {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    width: 180px;
+    height: 135px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid var(--accent-primary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    background: #000;
+}
+
+.camera-overlay video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.camera-indicator {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(255, 0, 0, 0.8);
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    animation: blink-rec 1.5s infinite;
+}
+
+.camera-indicator i {
+    font-size: 0.5rem;
+    color: #ff0000;
+}
+
+@keyframes blink-rec {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* Camera Required Overlay */
+.camera-required-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+}
+
+.camera-required-modal {
+    background: var(--bg-card);
+    border: 2px solid var(--danger, #ff4444);
+    border-radius: var(--radius);
+    padding: 3rem;
+    text-align: center;
+    max-width: 450px;
+    width: 90%;
+}
+
+.camera-required-modal i {
+    font-size: 3rem;
+    color: var(--danger, #ff4444);
+    margin-bottom: 1rem;
+}
+
+.camera-required-modal h3 {
+    color: var(--danger, #ff4444);
+    margin-bottom: 1rem;
+}
+
+.camera-required-modal p {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+/* Camera Warning Overlay (when camera is disabled during exam) */
+.camera-warning-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2500;
+    backdrop-filter: blur(2px);
+}
+
+.camera-warning-modal {
+    background: var(--bg-card);
+    border: 2px solid var(--danger, #ff4444);
+    border-radius: var(--radius);
+    padding: 2rem;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    animation: shake 0.5s ease-in-out;
+}
+
+.camera-warning-modal i {
+    font-size: 2.5rem;
+    color: var(--danger, #ff4444);
+    margin-bottom: 0.5rem;
+}
+
+.camera-warning-text {
+    color: var(--danger, #ff4444);
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
+/* Eye Contact Warning Overlay */
+.eye-warning-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 187, 51, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    pointer-events: none;
+}
+
+.eye-warning-modal {
+    background: var(--bg-card);
+    border: 2px solid var(--warning, #ffbb33);
+    border-radius: var(--radius);
+    padding: 2rem;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    animation: fadeIn 0.3s ease;
+}
+
+.eye-warning-modal i {
+    font-size: 2.5rem;
+    color: var(--warning, #ffbb33);
+    margin-bottom: 0.5rem;
+}
+
+#eye-warning-text {
+    color: var(--warning, #ffbb33);
+    font-weight: 500;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.eye-warning-count {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+/* Eye Contact Notification (slide-in from top) */
+.eye-notification {
+    position: fixed;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--warning, #ffbb33);
+    color: #000;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0 0 12px 12px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    z-index: 2100;
+    transition: top 0.4s ease;
+    box-shadow: 0 4px 15px rgba(255, 187, 51, 0.3);
+}
+
+.eye-notification.show {
+    top: 0;
+}
+
 /* Voice Overlay */
 .voice-overlay {
     position: fixed;
@@ -260,5 +492,16 @@
 
     .question-card {
         padding: 1.5rem;
+    }
+
+    .camera-overlay {
+        width: 120px;
+        height: 90px;
+        top: 70px;
+        right: 10px;
+    }
+
+    .per-question-timer {
+        font-size: 1.1rem;
     }
 }
