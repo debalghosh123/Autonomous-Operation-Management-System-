@@ -67,12 +67,55 @@ async def list_candidates(request: Request):
 
 
 @router.get("/questions", response_class=HTMLResponse)
-async def manage_questions(request: Request):
-    """Question management page."""
+async def manage_questions(request: Request, page: int = 1, topic: str = "", search: str = ""):
+    """Question management page with pagination, topic filter, and search."""
+    per_page = 50
+    offset = (page - 1) * per_page
+
     with get_db() as db:
-        questions = db.execute("SELECT * FROM questions ORDER BY id").fetchall()
-        return templates.TemplateResponse("admin/questions.html", {"request": request, "questions": [dict(q) for q in questions]},
-        )
+        # Build query with optional filters
+        where_clauses = []
+        params = []
+
+        if topic:
+            where_clauses.append("topic = ?")
+            params.append(topic)
+
+        if search:
+            where_clauses.append("question_text LIKE ?")
+            params.append(f"%{search}%")
+
+        where_sql = ""
+        if where_clauses:
+            where_sql = "WHERE " + " AND ".join(where_clauses)
+
+        # Get total count with filters
+        count_query = f"SELECT COUNT(*) as count FROM questions {where_sql}"
+        total_count = db.execute(count_query, params).fetchone()["count"]
+
+        # Get paginated questions
+        query = f"SELECT * FROM questions {where_sql} ORDER BY id LIMIT ? OFFSET ?"
+        questions = db.execute(query, params + [per_page, offset]).fetchall()
+
+        # Get all available topics for filter dropdown
+        topics = db.execute(
+            "SELECT DISTINCT topic FROM questions ORDER BY topic"
+        ).fetchall()
+        topic_list = [t["topic"] for t in topics]
+
+        total_pages = (total_count + per_page - 1) // per_page
+
+        return templates.TemplateResponse("admin/questions.html", {
+            "request": request,
+            "questions": [dict(q) for q in questions],
+            "page": page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "per_page": per_page,
+            "topics": topic_list,
+            "current_topic": topic,
+            "current_search": search,
+        })
 
 
 @router.get("/exam/{exam_id}", response_class=HTMLResponse)

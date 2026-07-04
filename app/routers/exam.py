@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime
 from app.database import get_db
 from app.config import settings
-from app.services.groq_service import generate_ai_feedback, generate_ai_questions
+from app.services.groq_service import generate_ai_feedback
 from app.services.email_service import send_result_email
 from app.services.whatsapp_service import send_whatsapp_notification
 from app.utils.helpers import calculate_percentage, is_passed
@@ -48,8 +48,7 @@ async def start_exam(request: Request, candidate_id: int):
 
 @router.get("/questions/{exam_id}", response_class=HTMLResponse)
 async def get_questions(request: Request, exam_id: int):
-    """Display exam questions - AI generated via Groq llama3."""
-    # First, get exam and candidate info
+    """Display exam questions - randomly selected from 1000-question bank."""
     with get_db() as db:
         exam = db.execute("SELECT * FROM exams WHERE id = ?", (exam_id,)).fetchone()
         if not exam:
@@ -59,54 +58,33 @@ async def get_questions(request: Request, exam_id: int):
             "SELECT * FROM candidates WHERE id = ?", (exam["candidate_id"],)
         ).fetchone()
 
-    # Generate AI questions OUTSIDE the db context manager
-    print(f"[EXAM] Starting AI question generation for exam {exam_id}")
-    ai_questions = []
-    try:
-        ai_questions = await generate_ai_questions(settings.TOTAL_QUESTIONS)
-        print(f"[EXAM] AI generated {len(ai_questions)} questions successfully")
-    except Exception as e:
-        print(f"[EXAM] AI question generation failed: {e}")
-        import traceback
-        traceback.print_exc()
+        # Randomly select questions from the question bank
+        rows = db.execute(
+            """SELECT id, question_text, option_a, option_b, option_c, option_d,
+                      correct_answer, difficulty, topic, marks
+               FROM questions ORDER BY RANDOM() LIMIT ?""",
+            (settings.TOTAL_QUESTIONS,),
+        ).fetchall()
+        questions = [dict(q) for q in rows]
 
-    if ai_questions:
-        # Store AI questions in database
-        with get_db() as db:
-            for i, q in enumerate(ai_questions):
-                try:
-                    db.execute(
-                        """INSERT INTO ai_questions (exam_id, question_number, question_text, 
-                           option_a, option_b, option_c, option_d, correct_answer, difficulty, topic, marks)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (exam_id, i+1, q["question_text"], q["option_a"], q["option_b"],
-                         q["option_c"], q["option_d"], q["correct_answer"],
-                         q.get("difficulty", "advanced"), q.get("topic", "python"), 4)
-                    )
-                except Exception as e:
-                    print(f"[EXAM] Error storing AI question {i+1}: {e}")
-        questions = ai_questions
+        # Store selected questions in ai_questions table for this exam (for scoring)
         for i, q in enumerate(questions):
-            q["id"] = i + 1
-            q["marks"] = 4
-            q["difficulty"] = q.get("difficulty", "advanced")
-    else:
-        # Fallback to database questions
-        print("[EXAM] WARNING: Using fallback database questions (AI failed)")
-        with get_db() as db:
-            rows = db.execute(
-                "SELECT id, question_text, option_a, option_b, option_c, option_d, difficulty, topic, marks FROM questions ORDER BY id LIMIT ?",
-                (settings.TOTAL_QUESTIONS,),
-            ).fetchall()
-            questions = [dict(q) for q in rows]
+            db.execute(
+                """INSERT INTO ai_questions (exam_id, question_number, question_text,
+                   option_a, option_b, option_c, option_d, correct_answer, difficulty, topic, marks)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (exam_id, i + 1, q["question_text"], q["option_a"], q["option_b"],
+                 q["option_c"], q["option_d"], q["correct_answer"],
+                 q.get("difficulty", "advanced"), q.get("topic", "python"),
+                 q.get("marks", 4)),
+            )
 
-    return templates.TemplateResponse("exam_questions.html", {"request": request, 
+    return templates.TemplateResponse("exam_questions.html", {"request": request,
             "exam_id": exam_id,
             "candidate": dict(candidate),
             "questions": questions,
             "total_questions": len(questions),
             "duration": settings.EXAM_DURATION_MINUTES,
-            "ai_generated": bool(ai_questions),
         },
     )
 
@@ -125,17 +103,17 @@ async def submit_exam(request: Request, exam_id: int):
             "SELECT * FROM candidates WHERE id = ?", (exam["candidate_id"],)
         ).fetchone()
 
-        # Check if AI questions exist for this exam
+        # Get the randomly selected questions stored for this exam
         ai_qs = db.execute(
             "SELECT * FROM ai_questions WHERE exam_id = ? ORDER BY question_number",
             (exam_id,)
         ).fetchall()
 
+        score = 0
+        topic_performance = {}
+
         if ai_qs:
-            # Use AI-generated questions
             questions = [dict(q) for q in ai_qs]
-            score = 0
-            topic_performance = {}
 
             for i, question in enumerate(questions):
                 q_num = str(i + 1)
@@ -157,14 +135,11 @@ async def submit_exam(request: Request, exam_id: int):
                     (exam_id, question["question_number"], selected, is_correct),
                 )
         else:
-            # Fallback to database questions
+            # Fallback to database questions (legacy path)
             questions = db.execute(
                 "SELECT * FROM questions ORDER BY id LIMIT ?",
                 (settings.TOTAL_QUESTIONS,),
             ).fetchall()
-
-            score = 0
-            topic_performance = {}
 
             for i, question in enumerate(questions):
                 q_num = str(i + 1)

@@ -140,6 +140,25 @@ async def send_notification(req: NotificationRequest):
         return {"success": success, "type": req.type, "candidate": candidate["name"]}
 
 
+@router.get("/question-bank/stats")
+async def question_bank_stats():
+    """Get question count per topic for the question bank."""
+    with get_db() as db:
+        stats = db.execute("""
+            SELECT topic, COUNT(*) as count
+            FROM questions
+            GROUP BY topic
+            ORDER BY topic
+        """).fetchall()
+
+        total = sum(row["count"] for row in stats)
+
+        return {
+            "total_questions": total,
+            "topics": [{"topic": row["topic"], "count": row["count"]} for row in stats],
+        }
+
+
 @router.get("/test-groq")
 async def test_groq():
     """Test if Groq API is working - with full diagnostics."""
