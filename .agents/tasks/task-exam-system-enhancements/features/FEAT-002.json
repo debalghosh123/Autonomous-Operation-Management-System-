@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Implement AI reshuffling of the question bank. When an exam starts, 25 questions are randomly selected from the 1000-question bank and shuffled. The selection should be randomized per exam (using Python random module with a seed based on exam_id + timestamp for reproducibility). Update the exam router to select questions from the database question bank randomly instead of generating them via AI or using sequential order. Also add an admin endpoint to view the full 1000-question bank with pagination, search, and topic filtering.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Update app/routers/exam.py get_questions() to select 25 random questions from the 1000-question bank in the questions table instead of calling Groq AI. Use SQL ORDER BY RANDOM() LIMIT 25. Store the selected question IDs in the ai_questions table (repurpose it) so results can be tracked. Remove the dependency on Groq AI for question generation (keep Groq only for feedback).",
     "Update the submit endpoint in app/routers/exam.py to correctly score against the randomly selected questions stored for that exam.",
@@ -21,5 +21,5 @@
     "Run: cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/test_app.py -v"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Successfully replaced AI question generation with random DB selection. The exam router no longer imports generate_ai_questions. Questions are selected using ORDER BY RANDOM() LIMIT 25 and stored in ai_questions table per exam. Admin page now supports pagination (50/page), topic filter dropdown (18 topics), and text search. New /api/question-bank/stats endpoint works. All 14 existing tests pass."
 }
