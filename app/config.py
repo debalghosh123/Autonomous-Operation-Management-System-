@@ -38,7 +38,7 @@ class Settings:
     MARKS_PER_QUESTION: int = 4
     TOTAL_MARKS: int = 100
     PASSING_PERCENTAGE: float = 90.0
-    EXAM_DURATION_MINUTES: int = 60
+    EXAM_DURATION_MINUTES: int = 25
 
     # Admin
     ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "admin")

@@ -826,6 +826,34 @@ body {
     margin: 0.3rem 0;
 }
 
+.footer-admin-links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.footer-admin-link {
+    color: var(--accent-primary);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--accent-primary);
+    border-radius: 8px;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.footer-admin-link:hover {
+    background: var(--accent-primary);
+    color: #000;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .hero-title {
