@@ -130,11 +130,22 @@ async def view_exam_detail(request: Request, exam_id: int):
             "SELECT * FROM candidates WHERE id = ?", (exam["candidate_id"],)
         ).fetchone()
 
+        # Try to get answers joined with ai_questions (used for randomly selected exams)
         answers = db.execute("""
-            SELECT a.*, q.question_text, q.correct_answer, q.option_a, q.option_b, q.option_c, q.option_d, q.topic
-            FROM answers a JOIN questions q ON a.question_id = q.id
+            SELECT a.*, aq.question_text, aq.correct_answer, aq.option_a, aq.option_b, aq.option_c, aq.option_d, aq.topic
+            FROM answers a
+            JOIN ai_questions aq ON a.exam_id = aq.exam_id AND a.question_id = aq.question_number
             WHERE a.exam_id = ?
+            ORDER BY aq.question_number
         """, (exam_id,)).fetchall()
+
+        # Fallback to legacy questions table join if no ai_questions found
+        if not answers:
+            answers = db.execute("""
+                SELECT a.*, q.question_text, q.correct_answer, q.option_a, q.option_b, q.option_c, q.option_d, q.topic
+                FROM answers a JOIN questions q ON a.question_id = q.id
+                WHERE a.exam_id = ?
+            """, (exam_id,)).fetchall()
 
         return templates.TemplateResponse("admin/exam_detail.html", {"request": request, 
                 "exam": dict(exam),

@@ -9,17 +9,23 @@ let timerInterval = null;
 let questionTimeRemaining = 60; // 60 seconds per question
 const SECONDS_PER_QUESTION = 60;
 
+// Track per-question remaining time (array indexed by question number, 1-based)
+let questionTimers = [];
+
 function initExam(total, duration) {
     totalQuestions = total;
+    // Initialize per-question timers (all start at 60 seconds)
+    questionTimers = new Array(totalQuestions + 1).fill(SECONDS_PER_QUESTION);
     setupNavigation();
     startQuestionTimer();
 }
 
 /**
- * Start the per-question countdown timer (60 seconds)
+ * Start the per-question countdown timer (resumes from saved time)
  */
 function startQuestionTimer() {
-    questionTimeRemaining = SECONDS_PER_QUESTION;
+    // Restore saved time for this question
+    questionTimeRemaining = questionTimers[currentQuestion] || SECONDS_PER_QUESTION;
     updateTimerDisplay();
 
     if (timerInterval) {
@@ -28,6 +34,7 @@ function startQuestionTimer() {
 
     timerInterval = setInterval(function() {
         questionTimeRemaining--;
+        questionTimers[currentQuestion] = questionTimeRemaining;
         updateTimerDisplay();
 
         if (questionTimeRemaining <= 0) {
@@ -35,6 +42,15 @@ function startQuestionTimer() {
             onQuestionTimeout();
         }
     }, 1000);
+}
+
+/**
+ * Save the current question's remaining time before navigating away
+ */
+function saveCurrentQuestionTime() {
+    if (currentQuestion >= 1 && currentQuestion <= totalQuestions) {
+        questionTimers[currentQuestion] = questionTimeRemaining;
+    }
 }
 
 /**
@@ -146,6 +162,14 @@ function setupNavigation() {
 function navigateQuestion(index) {
     if (index < 1 || index > totalQuestions) return;
 
+    // Save current question's remaining time before navigating away
+    saveCurrentQuestionTime();
+
+    // Clear the current timer
+    if (timerInterval) {
+        clearInterval(timerInterval);
+    }
+
     // Hide current
     const activeCard = document.querySelector('.question-card.active');
     const activeDot = document.querySelector('.dot.active');
@@ -174,6 +198,6 @@ function navigateQuestion(index) {
     if (prevBtn) prevBtn.disabled = (currentQuestion === 1);
     if (nextBtn) nextBtn.disabled = (currentQuestion === totalQuestions);
 
-    // Reset and restart per-question timer
+    // Start timer with saved remaining time for this question
     startQuestionTimer();
 }

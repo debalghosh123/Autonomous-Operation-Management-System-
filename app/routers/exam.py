@@ -58,26 +58,36 @@ async def get_questions(request: Request, exam_id: int):
             "SELECT * FROM candidates WHERE id = ?", (exam["candidate_id"],)
         ).fetchone()
 
-        # Randomly select questions from the question bank
-        rows = db.execute(
-            """SELECT id, question_text, option_a, option_b, option_c, option_d,
-                      correct_answer, difficulty, topic, marks
-               FROM questions ORDER BY RANDOM() LIMIT ?""",
-            (settings.TOTAL_QUESTIONS,),
+        # Check if questions already exist for this exam (idempotency guard)
+        existing = db.execute(
+            "SELECT * FROM ai_questions WHERE exam_id = ? ORDER BY question_number",
+            (exam_id,),
         ).fetchall()
-        questions = [dict(q) for q in rows]
 
-        # Store selected questions in ai_questions table for this exam (for scoring)
-        for i, q in enumerate(questions):
-            db.execute(
-                """INSERT INTO ai_questions (exam_id, question_number, question_text,
-                   option_a, option_b, option_c, option_d, correct_answer, difficulty, topic, marks)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (exam_id, i + 1, q["question_text"], q["option_a"], q["option_b"],
-                 q["option_c"], q["option_d"], q["correct_answer"],
-                 q.get("difficulty", "advanced"), q.get("topic", "python"),
-                 q.get("marks", 4)),
-            )
+        if existing:
+            # Use previously selected questions (prevents duplication on refresh)
+            questions = [dict(q) for q in existing]
+        else:
+            # Randomly select questions from the question bank
+            rows = db.execute(
+                """SELECT id, question_text, option_a, option_b, option_c, option_d,
+                          correct_answer, difficulty, topic, marks
+                   FROM questions ORDER BY RANDOM() LIMIT ?""",
+                (settings.TOTAL_QUESTIONS,),
+            ).fetchall()
+            questions = [dict(q) for q in rows]
+
+            # Store selected questions in ai_questions table for this exam (for scoring)
+            for i, q in enumerate(questions):
+                db.execute(
+                    """INSERT INTO ai_questions (exam_id, question_number, question_text,
+                       option_a, option_b, option_c, option_d, correct_answer, difficulty, topic, marks)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (exam_id, i + 1, q["question_text"], q["option_a"], q["option_b"],
+                     q["option_c"], q["option_d"], q["correct_answer"],
+                     q.get("difficulty", "advanced"), q.get("topic", "python"),
+                     q.get("marks", 4)),
+                )
 
     return templates.TemplateResponse("exam_questions.html", {"request": request,
             "exam_id": exam_id,

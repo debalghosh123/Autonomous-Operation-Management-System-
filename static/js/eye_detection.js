@@ -1,6 +1,7 @@
 /**
  * Career Lab Consulting - Eye Contact Detection
- * Monitors face presence using face-api.js
+ * Monitors face presence using face-api.js (loaded from CDN)
+ * Falls back to skin-tone heuristic if face-api.js is unavailable
  * Shows warnings when face is not detected for extended periods
  */
 
@@ -15,7 +16,7 @@ const MAX_WARNINGS = 5;
 const DETECTION_INTERVAL = 1000; // Check every 1 second
 
 /**
- * Initialize eye detection with face-api.js
+ * Initialize eye detection with face-api.js (loaded from CDN)
  * @param {HTMLVideoElement} videoElement - The video element with camera feed
  */
 async function initEyeDetection(videoElement) {
@@ -26,14 +27,17 @@ async function initEyeDetection(videoElement) {
     detectionCanvas.width = 160;
     detectionCanvas.height = 120;
 
-    // Try to load face-api.js models
+    // Try to use face-api.js loaded from CDN
     try {
         if (typeof faceapi !== 'undefined') {
-            await faceapi.nets.tinyFaceDetector.loadFromUri('/static/models');
+            // Load TinyFaceDetector model from CDN
+            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
             faceApiLoaded = true;
+            console.log('face-api.js TinyFaceDetector loaded successfully');
         }
     } catch (e) {
-        console.warn('face-api.js models not available, using fallback detection');
+        console.warn('face-api.js models not available, using fallback detection:', e.message);
         faceApiLoaded = false;
     }
 
@@ -70,7 +74,7 @@ function startDetection() {
 
 /**
  * Detect face presence in the video frame
- * Uses face-api.js if available, otherwise uses motion/brightness heuristic
+ * Uses face-api.js if available, otherwise uses skin-tone heuristic
  * @returns {Promise<boolean>} - Whether a face is detected
  */
 async function detectFace() {
@@ -90,8 +94,7 @@ async function detectFace() {
 
 /**
  * Fallback face detection using pixel analysis
- * Checks for significant visual content in the video frame
- * (skin-tone pixel detection heuristic)
+ * Checks for significant skin-tone pixels in the video frame
  * @returns {boolean}
  */
 function useFallbackDetection() {

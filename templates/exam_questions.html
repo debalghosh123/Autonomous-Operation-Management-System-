@@ -4,6 +4,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="/static/css/exam.css">
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -153,6 +154,42 @@
     // Initialize exam with per-question timer (60 seconds per question)
     initExam({{ total_questions }}, {{ duration }});
 
+    /**
+     * Disable exam form when camera is not active
+     */
+    function disableExamForm() {
+        const examForm = document.getElementById('exam-form');
+        if (examForm) {
+            examForm.style.pointerEvents = 'none';
+            examForm.style.opacity = '0.5';
+        }
+        // Disable all radio inputs
+        document.querySelectorAll('#exam-form input[type="radio"]').forEach(input => {
+            input.disabled = true;
+        });
+        // Disable submit button
+        const submitBtn = document.getElementById('submit-btn');
+        if (submitBtn) submitBtn.disabled = true;
+    }
+
+    /**
+     * Enable exam form when camera is active
+     */
+    function enableExamForm() {
+        const examForm = document.getElementById('exam-form');
+        if (examForm) {
+            examForm.style.pointerEvents = '';
+            examForm.style.opacity = '';
+        }
+        // Enable all radio inputs
+        document.querySelectorAll('#exam-form input[type="radio"]').forEach(input => {
+            input.disabled = false;
+        });
+        // Enable submit button
+        const submitBtn = document.getElementById('submit-btn');
+        if (submitBtn) submitBtn.disabled = false;
+    }
+
     // Initialize camera on exam page load
     (async function() {
         const videoElement = document.getElementById('exam-camera');
@@ -161,12 +198,14 @@
 
         const success = await initCamera(videoElement);
         if (!success) {
-            // Show camera required message
+            // Show camera required message and disable exam form
             cameraRequiredOverlay.style.display = 'flex';
             cameraOverlay.style.display = 'none';
+            disableExamForm();
         } else {
             // Start eye detection
             initEyeDetection(videoElement);
+            enableExamForm();
         }
 
         // Retry camera button
@@ -178,9 +217,24 @@
                     cameraRequiredOverlay.style.display = 'none';
                     cameraOverlay.style.display = 'block';
                     initEyeDetection(videoElement);
+                    enableExamForm();
                 }
             });
         }
+
+        // Override showCameraWarning to also disable the form
+        const originalShowCameraWarning = showCameraWarning;
+        showCameraWarning = function(message) {
+            originalShowCameraWarning(message);
+            disableExamForm();
+        };
+
+        // Override hideCameraWarning to also enable the form
+        const originalHideCameraWarning = hideCameraWarning;
+        hideCameraWarning = function() {
+            originalHideCameraWarning();
+            enableExamForm();
+        };
     })();
 </script>
 {% endblock %}
