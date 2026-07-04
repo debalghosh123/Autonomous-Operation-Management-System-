@@ -4,6 +4,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="/static/css/exam.css">
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -13,8 +14,8 @@
             <span class="candidate-name">
                 <i class="fas fa-user"></i> {{ candidate.name }}
             </span>
-            <span class="timer" id="timer">
-                <i class="fas fa-clock"></i> <span id="time-display">{{ duration }}:00</span>
+            <span class="timer per-question-timer" id="timer">
+                <i class="fas fa-clock"></i> <span id="time-display">01:00</span>
             </span>
             <span class="question-counter" id="question-counter">
                 Q <span id="current-q">1</span>/{{ total_questions }}
@@ -89,6 +90,48 @@
     </form>
 </div>
 
+<!-- Camera preview overlay (top-right corner) -->
+<div class="camera-overlay" id="camera-overlay">
+    <video id="exam-camera" autoplay muted playsinline></video>
+    <div class="camera-indicator" id="camera-indicator">
+        <i class="fas fa-circle"></i> REC
+    </div>
+</div>
+
+<!-- Camera required message -->
+<div class="camera-required-overlay" id="camera-required-overlay" style="display: none;">
+    <div class="camera-required-modal">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h3>Camera Required</h3>
+        <p>Camera access is mandatory for this exam. Please allow camera permissions to continue.</p>
+        <button class="btn btn-primary" id="retry-camera-btn">
+            <i class="fas fa-camera"></i> Enable Camera
+        </button>
+    </div>
+</div>
+
+<!-- Camera warning overlay (if camera is disabled during exam) -->
+<div class="camera-warning-overlay" id="camera-warning-overlay" style="display: none;">
+    <div class="camera-warning-modal">
+        <i class="fas fa-exclamation-circle"></i>
+        <p class="camera-warning-text">Camera has been disabled! Please re-enable your camera.</p>
+    </div>
+</div>
+
+<!-- Eye contact warning overlay -->
+<div class="eye-warning-overlay" id="eye-warning-overlay" style="display: none;">
+    <div class="eye-warning-modal">
+        <i class="fas fa-eye-slash"></i>
+        <p id="eye-warning-text">Please look at the screen. Maintain eye contact during the exam.</p>
+        <span class="eye-warning-count" id="eye-warning-count">Warnings: 0/5</span>
+    </div>
+</div>
+
+<!-- Eye contact notification (slides in from top) -->
+<div class="eye-notification" id="eye-notification">
+    Eye Contact Warning
+</div>
+
 <!-- Voice mode overlay -->
 <div class="voice-overlay" id="voice-overlay" style="display: none;">
     <div class="voice-modal">
@@ -103,9 +146,95 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/camera.js"></script>
+<script src="/static/js/eye_detection.js"></script>
 <script src="/static/js/exam.js"></script>
 <script src="/static/js/voice.js"></script>
 <script>
+    // Initialize exam with per-question timer (60 seconds per question)
     initExam({{ total_questions }}, {{ duration }});
+
+    /**
+     * Disable exam form when camera is not active
+     */
+    function disableExamForm() {
+        const examForm = document.getElementById('exam-form');
+        if (examForm) {
+            examForm.style.pointerEvents = 'none';
+            examForm.style.opacity = '0.5';
+        }
+        // Disable all radio inputs
+        document.querySelectorAll('#exam-form input[type="radio"]').forEach(input => {
+            input.disabled = true;
+        });
+        // Disable submit button
+        const submitBtn = document.getElementById('submit-btn');
+        if (submitBtn) submitBtn.disabled = true;
+    }
+
+    /**
+     * Enable exam form when camera is active
+     */
+    function enableExamForm() {
+        const examForm = document.getElementById('exam-form');
+        if (examForm) {
+            examForm.style.pointerEvents = '';
+            examForm.style.opacity = '';
+        }
+        // Enable all radio inputs
+        document.querySelectorAll('#exam-form input[type="radio"]').forEach(input => {
+            input.disabled = false;
+        });
+        // Enable submit button
+        const submitBtn = document.getElementById('submit-btn');
+        if (submitBtn) submitBtn.disabled = false;
+    }
+
+    // Initialize camera on exam page load
+    (async function() {
+        const videoElement = document.getElementById('exam-camera');
+        const cameraOverlay = document.getElementById('camera-overlay');
+        const cameraRequiredOverlay = document.getElementById('camera-required-overlay');
+
+        const success = await initCamera(videoElement);
+        if (!success) {
+            // Show camera required message and disable exam form
+            cameraRequiredOverlay.style.display = 'flex';
+            cameraOverlay.style.display = 'none';
+            disableExamForm();
+        } else {
+            // Start eye detection
+            initEyeDetection(videoElement);
+            enableExamForm();
+        }
+
+        // Retry camera button
+        const retryBtn = document.getElementById('retry-camera-btn');
+        if (retryBtn) {
+            retryBtn.addEventListener('click', async function() {
+                const retrySuccess = await initCamera(videoElement);
+                if (retrySuccess) {
+                    cameraRequiredOverlay.style.display = 'none';
+                    cameraOverlay.style.display = 'block';
+                    initEyeDetection(videoElement);
+                    enableExamForm();
+                }
+            });
+        }
+
+        // Override showCameraWarning to also disable the form
+        const originalShowCameraWarning = showCameraWarning;
+        showCameraWarning = function(message) {
+            originalShowCameraWarning(message);
+            disableExamForm();
+        };
+
+        // Override hideCameraWarning to also enable the form
+        const originalHideCameraWarning = hideCameraWarning;
+        hideCameraWarning = function() {
+            originalHideCameraWarning();
+            enableExamForm();
+        };
+    })();
 </script>
 {% endblock %}

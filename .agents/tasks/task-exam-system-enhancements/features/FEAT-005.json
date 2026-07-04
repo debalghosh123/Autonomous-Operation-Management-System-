@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-005",
+  "type": "fix",
+  "description": "Fix critical issues from semantic review: (1) Answer distribution in question bank - redistribute answers equally across A/B/C/D, (2) Question duplication on page refresh - add idempotency check, (3) Admin exam detail broken - fix JOIN to use ai_questions, (4) Timer resets on backward navigation - track per-question time, (5) Load face-api.js from CDN, (6) Camera enforcement - disable exam form when camera fails.",
+  "status": "completed",
+  "steps": [
+    "Fix app/question_bank.py - Shuffle options for each question to redistribute correct answers roughly equally across A/B/C/D (about 250 each).",
+    "Fix app/routers/exam.py get_questions() - Add idempotency check before inserting questions. If questions already exist for exam_id in ai_questions, return those instead of inserting new ones.",
+    "Fix app/routers/admin.py view_exam_detail() - Update the query to join through ai_questions table, same pattern as the exam_result endpoint.",
+    "Fix static/js/exam.js - Track per-question remaining time in an array, save it when navigating away, restore it when navigating back.",
+    "Fix templates/exam_questions.html - Add CDN script for face-api.js. When camera fails, add pointer-events:none to exam form and disable radio inputs.",
+    "Fix static/js/eye_detection.js - Update to use CDN-loaded face-api with TinyFaceDetector that works without separate model files."
+  ],
+  "acceptance_criteria": [
+    "Answer distribution across A/B/C/D is roughly equal (200-300 each)",
+    "Refreshing /exam/questions/{exam_id} does not duplicate questions",
+    "Admin exam detail page shows correct question data for new-format exams",
+    "Timer does not reset when navigating between questions",
+    "face-api.js loads from CDN",
+    "Exam form is disabled when camera is not active",
+    "All existing tests pass"
+  ],
+  "verification": [
+    "Run: python -c \"from app.question_bank import QUESTION_BANK; from collections import Counter; c = Counter(q['correct_answer'] for q in QUESTION_BANK); print(c); assert all(200 <= v <= 300 for v in c.values())\"",
+    "Run: python -m pytest tests/ -v"
+  ],
+  "blocked_reason": null,
+  "findings": "All 6 review issues fixed successfully. Answer distribution now exactly 250 A/B/C/D each (shuffled by swapping options while maintaining correct answer mapping). Idempotency guard checks for existing ai_questions before inserting. Admin detail uses same join pattern as exam_result. Timer saves per-question remaining time in an array. face-api.js loads from CDN with fallback to skin-tone heuristic. Camera enforcement disables form with pointer-events:none and disabled inputs. All 27 tests pass."
+}

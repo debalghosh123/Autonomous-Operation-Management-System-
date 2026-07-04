@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Add a comprehensive 1000-question bank covering Python for AI Agent Development based on the curriculum. Questions cover: Python setup/venv, variables/data types/operators, strings/string methods, lists/tuples/sets, dictionaries/JSON, control flow, loops, functions/scope, modules/packages/pip, file I/O/error handling, OOP (classes, inheritance, polymorphism, dunder methods), APIs with requests, web scraping (BeautifulSoup), pandas data manipulation, regular expressions, async programming (asyncio/aiohttp), plus applied knowledge for building autonomous AI agents. All questions are at 1-year experienced candidate difficulty level. Questions are stored as a Python module that seeds the database.",
+  "status": "completed",
+  "steps": [
+    "Create a new file app/question_bank.py containing a list of 1000 MCQ dictionaries. Each dict has keys: question_text, option_a, option_b, option_c, option_d, correct_answer (A/B/C/D), difficulty (always 'advanced'), topic (one of: python_setup, variables_datatypes, strings, lists_tuples_sets, dictionaries_json, control_flow, loops, functions_scope, modules_packages, file_io_errors, oop_basics, oop_advanced, apis_requests, web_scraping, pandas, regex, async_programming, ai_agent_patterns). Distribute questions roughly: 50-60 per topic across 18 topics to reach 1000.",
+    "Questions must test PRACTICAL Python knowledge needed to build AI agents. Examples: how to parse JSON API responses, async concurrent API calls, class inheritance for tool plugins, regex for extracting URLs/emails, pandas for data processing, error handling in production systems, working with virtual environments and pip, file I/O for config/data, BeautifulSoup selectors, etc.",
+    "Questions should be at 1-year experience level - not trivial basics but not obscure internals. They should test whether someone can actually USE Python to build agent systems: proper use of *args/**kwargs, list comprehensions, context managers, decorator patterns, asyncio event loops, aiohttp sessions, JSON serialization/deserialization, DataFrame operations, etc.",
+    "Update app/database.py to import from app/question_bank.py and seed all 1000 questions into the questions table when it is empty. Replace the existing _seed_questions function to use the new question bank.",
+    "Update app/config.py to change TOTAL_QUESTIONS from 25 to 25 (keep exam at 25 questions selected from the 1000-question bank). The bank has 1000 but each exam draws 25 randomly."
+  ],
+  "acceptance_criteria": [
+    "app/question_bank.py exists with exactly 1000 question dictionaries",
+    "Each question has all required fields: question_text, option_a, option_b, option_c, option_d, correct_answer, difficulty, topic",
+    "Topics cover all 18 curriculum sessions from the AI Agent Development program",
+    "Questions are at 1-year experienced candidate difficulty level - testing practical Python usage for agent development",
+    "Database seeds with all 1000 questions when initialized",
+    "Running pytest tests/test_app.py still passes"
+  ],
+  "verification": [
+    "Run: cd /projects/sandbox/Autonomous-Operation-Management-System- && python -c \"from app.question_bank import QUESTION_BANK; print(f'Total questions: {len(QUESTION_BANK)}'); topics = set(q['topic'] for q in QUESTION_BANK); print(f'Topics: {len(topics)}'); print(topics)\"",
+    "Run: cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/test_app.py -v"
+  ],
+  "blocked_reason": null,
+  "findings": "Successfully created 1000 questions across 18 topics. Database seeds correctly. All 14 existing tests pass. The question_bank.py file is ~145KB with JSON-formatted question dictionaries."
+}

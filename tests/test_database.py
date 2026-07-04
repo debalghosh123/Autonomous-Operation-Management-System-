@@ -26,11 +26,11 @@ def test_database_init():
 
 
 def test_questions_seeded():
-    """Test 25 questions are seeded."""
+    """Test 1000 questions are seeded in the question bank."""
     init_db()
     with get_db() as db:
         count = db.execute("SELECT COUNT(*) as c FROM questions").fetchone()["c"]
-        assert count == 25
+        assert count == 1000
 
 
 def test_questions_have_4_marks():
@@ -42,7 +42,9 @@ def test_questions_have_4_marks():
 
 
 def test_total_marks_is_100():
-    """Test total marks across all questions is 100."""
+    """Test total marks for 25 randomly selected questions is 100."""
     with get_db() as db:
-        total = db.execute("SELECT SUM(marks) as total FROM questions").fetchone()["total"]
+        # Each question has 4 marks, and 25 are selected per exam = 100 total
+        sample = db.execute("SELECT marks FROM questions LIMIT 25").fetchall()
+        total = sum(q["marks"] for q in sample)
         assert total == 100
