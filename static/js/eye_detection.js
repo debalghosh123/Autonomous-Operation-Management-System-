@@ -1,8 +1,21 @@
 /**
- * Career Lab Consulting - Eye Gaze Detection
- * Monitors gaze direction using face-api.js 68-point face landmarks.
- * Detects when the candidate's eyes look away from the screen (questions panel).
- * Only triggers warnings when gaze is off-center, NOT when face is simply present.
+ * Career Lab Consulting - Head Pose Gaze Detection
+ * Monitors gaze direction using head pose estimation from face-api.js 68-point landmarks.
+ * 
+ * WHY HEAD POSE:
+ * The 68-point face landmark model provides eye CONTOUR outlines (the shape of the eye opening),
+ * NOT the iris/pupil center. The centroid of 6 eye contour points is always approximately the
+ * geometric center of the eye opening regardless of where the person is actually looking.
+ * Instead, we use head rotation (yaw/pitch) estimated from key facial landmarks as a proxy
+ * for gaze direction -- when someone looks away from a screen, their head typically turns too.
+ *
+ * KEY LANDMARKS USED:
+ * - Point 30: Nose tip
+ * - Point 8: Chin
+ * - Point 36: Left eye outer corner
+ * - Point 45: Right eye outer corner
+ * - Point 48: Left mouth corner
+ * - Point 54: Right mouth corner
  */
 
 let eyeDetectionInterval = null;
@@ -11,20 +24,28 @@ let warningCount = 0;
 let faceApiLoaded = false;
 let landmarksLoaded = false;
 let detectionVideo = null;
-let warningShownForCurrentDistraction = false; // Prevents repeated warnings for a single distraction event
-let gazeAtScreenFrames = 0; // Counter for consecutive frames where gaze is at screen
+let warningShownForCurrentDistraction = false;
+let gazeAtScreenFrames = 0;
+let debugLogCounter = 0;
+
 const GAZE_AWAY_THRESHOLD = 2000; // 2 seconds of looking away before warning
 const MAX_WARNINGS = 5;
-const DETECTION_INTERVAL = 500; // Check every 500ms for smoother detection
-const GAZE_RETURN_FRAMES_REQUIRED = 3; // Require 3+ consecutive "looking at screen" frames (1.5s at 500ms interval) before resetting
+const DETECTION_INTERVAL = 500; // Check every 500ms
+const GAZE_RETURN_FRAMES_REQUIRED = 3; // 3 consecutive "at screen" frames (1.5s) before resetting
+const DEBUG_LOG_INTERVAL = 6; // Log debug info every 6 frames (3 seconds at 500ms interval)
 
-// Gaze thresholds - how far off-center the gaze must be to count as "looking away"
-// These are ratios (0 = looking fully left/up, 0.5 = center, 1 = fully right/down)
-const GAZE_HORIZONTAL_THRESHOLD = 0.28; // If horizontal ratio < 0.28 or > 0.72, looking away
-const GAZE_VERTICAL_THRESHOLD = 0.25;   // If vertical ratio < 0.25 or > 0.75, looking away
+// Head pose thresholds for "looking away"
+const YAW_THRESHOLD_LOW = 0.32;   // Head turned right (nose closer to right eye)
+const YAW_THRESHOLD_HIGH = 0.68;  // Head turned left (nose closer to left eye)
+const PITCH_THRESHOLD_LOW = 0.30; // Head tilted up (nose higher relative to face height)
+const PITCH_THRESHOLD_HIGH = 0.65; // Head tilted down (nose lower relative to face height)
+
+// Face bounding box position thresholds (face shifted far in frame)
+const FACE_BOX_X_LOW = 0.25;
+const FACE_BOX_X_HIGH = 0.75;
 
 /**
- * Initialize eye gaze detection with face-api.js landmarks
+ * Initialize eye/gaze detection with face-api.js landmarks
  * @param {HTMLVideoElement} videoElement - The video element with camera feed
  */
 async function initEyeDetection(videoElement) {
@@ -35,7 +56,7 @@ async function initEyeDetection(videoElement) {
         if (typeof faceapi !== 'undefined') {
             const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 
-            // Load both TinyFaceDetector and face landmarks model
+            // Load TinyFaceDetector and face landmarks model
             await Promise.all([
                 faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                 faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL)
@@ -43,10 +64,11 @@ async function initEyeDetection(videoElement) {
 
             faceApiLoaded = true;
             landmarksLoaded = true;
-            console.log('face-api.js TinyFaceDetector + FaceLandmark68TinyNet loaded successfully');
+            console.log('[EyeDetection] face-api.js TinyFaceDetector + FaceLandmark68TinyNet loaded successfully');
+            console.log('[EyeDetection] Using HEAD POSE estimation for gaze detection');
         }
     } catch (e) {
-        console.warn('face-api.js landmark models not available:', e.message);
+        console.warn('[EyeDetection] Landmark models not available:', e.message);
         // Try loading just face detector as fallback
         try {
             if (typeof faceapi !== 'undefined') {
@@ -54,10 +76,10 @@ async function initEyeDetection(videoElement) {
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
                 faceApiLoaded = true;
                 landmarksLoaded = false;
-                console.log('face-api.js TinyFaceDetector loaded (without landmarks)');
+                console.log('[EyeDetection] TinyFaceDetector loaded (without landmarks, using face-box fallback)');
             }
         } catch (e2) {
-            console.warn('face-api.js not available at all, gaze detection disabled:', e2.message);
+            console.warn('[EyeDetection] face-api.js not available, gaze detection disabled:', e2.message);
             faceApiLoaded = false;
             landmarksLoaded = false;
         }
@@ -71,64 +93,56 @@ async function initEyeDetection(videoElement) {
  * Start the gaze detection loop
  *
  * State machine with hysteresis:
- *   LOOKING_AT_SCREEN -> gaze leaves screen -> start timer (GAZE_AWAY_DETECTED), reset gazeAtScreenFrames
- *   GAZE_AWAY_DETECTED -> threshold elapsed -> trigger ONE warning (WARNING_SHOWN)
+ *   LOOKING_AT_SCREEN -> gaze leaves screen -> start timer, reset gazeAtScreenFrames
+ *   GAZE_AWAY_DETECTED -> threshold elapsed -> trigger ONE warning
  *   WARNING_SHOWN -> still looking away -> DO NOTHING (no repeated warnings)
- *   WARNING_SHOWN / GAZE_AWAY_DETECTED -> gaze returns for 3+ consecutive frames -> reset to LOOKING_AT_SCREEN
- *
- * The hysteresis (gazeAtScreenFrames counter) prevents a single noisy frame from
- * resetting the distraction state. The candidate must sustain gaze at screen for
- * at least 1.5 seconds (3 frames at 500ms) before the system considers the
- * distraction event over and is ready to detect the next one.
+ *   WARNING_SHOWN / GAZE_AWAY_DETECTED -> gaze returns for 3+ consecutive frames -> reset
  */
 function startDetection() {
     gazeAwayStartTime = null;
     warningShownForCurrentDistraction = false;
     gazeAtScreenFrames = 0;
+    debugLogCounter = 0;
+
     eyeDetectionInterval = setInterval(async () => {
         if (!detectionVideo || detectionVideo.paused || detectionVideo.ended) return;
 
         const gazeResult = await detectGaze();
 
         if (gazeResult.lookingAway) {
-            // Eyes are looking away from the screen
-            // Reset the at-screen counter since gaze is away
+            // Candidate is looking away from the screen
             gazeAtScreenFrames = 0;
 
             if (gazeAwayStartTime === null) {
                 gazeAwayStartTime = Date.now();
             } else if (!warningShownForCurrentDistraction) {
-                // Only trigger a warning if we haven't already shown one for this distraction
                 const elapsed = Date.now() - gazeAwayStartTime;
                 if (elapsed >= GAZE_AWAY_THRESHOLD) {
                     triggerEyeWarning();
-                    warningShownForCurrentDistraction = true; // Mark: warning shown, do not repeat
+                    warningShownForCurrentDistraction = true;
                 }
             }
             // If warningShownForCurrentDistraction is true and still looking away, do nothing
         } else {
-            // Eyes appear to be on screen - increment the at-screen counter
+            // Candidate appears to be looking at screen
             gazeAtScreenFrames++;
 
-            // Only reset distraction state after sustained looking-at-screen
-            // This prevents a single noisy frame from resetting the state
+            // Only reset distraction state after sustained looking-at-screen (hysteresis)
             if (gazeAtScreenFrames >= GAZE_RETURN_FRAMES_REQUIRED) {
                 gazeAwayStartTime = null;
                 warningShownForCurrentDistraction = false;
-                // Keep gazeAtScreenFrames counting (no need to reset, it just keeps going)
             }
-            // Do NOT call hideEyeWarning() here - let the 5-second auto-hide handle it
         }
     }, DETECTION_INTERVAL);
 }
 
 /**
- * Detect gaze direction using face-api.js landmarks
- * Returns whether the candidate is looking away from the screen
+ * Detect gaze direction using head pose estimation from face landmarks.
+ * Falls back to face bounding box position if landmarks are not available.
  * @returns {Promise<{lookingAway: boolean, direction: string|null}>}
  */
 async function detectGaze() {
-    // If we have landmarks model, use gaze direction detection
+    // PRIMARY: Head pose estimation using 68-point landmarks
     if (faceApiLoaded && landmarksLoaded && typeof faceapi !== 'undefined') {
         try {
             const detection = await faceapi
@@ -139,57 +153,67 @@ async function detectGaze() {
                 .withFaceLandmarks(true); // true = use tiny model
 
             if (!detection) {
-                // No face detected - could be looking far away or face out of frame
-                // Treat as looking away only if it persists (handled by threshold timer)
+                // No face detected - face may be turned too far or out of frame
                 return { lookingAway: true, direction: 'no_face' };
             }
 
-            // Extract eye landmarks from the 68-point model
+            // Get all 68 landmark positions
             const landmarks = detection.landmarks;
             const positions = landmarks.positions;
 
-            // Left eye: points 36-41
-            const leftEye = positions.slice(36, 42);
-            // Right eye: points 42-47
-            const rightEye = positions.slice(42, 48);
+            // Calculate head pose (yaw and pitch)
+            const headPose = calculateHeadPose(positions);
 
-            // Calculate gaze direction for each eye
-            const leftGaze = calculateEyeGaze(leftEye);
-            const rightGaze = calculateEyeGaze(rightEye);
+            // SECONDARY: Check face bounding box position in frame
+            const box = detection.detection.box;
+            const videoWidth = detectionVideo.videoWidth || detectionVideo.width;
+            const videoHeight = detectionVideo.videoHeight || detectionVideo.height;
+            const faceCenterX = (box.x + box.width / 2) / videoWidth;
 
-            // Average the gaze of both eyes
-            const avgHorizontalRatio = (leftGaze.horizontalRatio + rightGaze.horizontalRatio) / 2;
-            const avgVerticalRatio = (leftGaze.verticalRatio + rightGaze.verticalRatio) / 2;
+            // Debug logging every few seconds
+            debugLogCounter++;
+            if (debugLogCounter >= DEBUG_LOG_INTERVAL) {
+                console.log(`[EyeDetection] yawRatio=${headPose.yawRatio.toFixed(3)}, pitchRatio=${headPose.pitchRatio.toFixed(3)}, faceCenterX=${faceCenterX.toFixed(3)}`);
+                debugLogCounter = 0;
+            }
 
-            // Determine if looking away from center
+            // Determine if looking away
             let lookingAway = false;
             let direction = 'center';
 
-            if (avgHorizontalRatio < GAZE_HORIZONTAL_THRESHOLD) {
+            // Check yaw (left-right head rotation)
+            if (headPose.yawRatio < YAW_THRESHOLD_LOW) {
                 lookingAway = true;
-                direction = 'left';
-            } else if (avgHorizontalRatio > (1 - GAZE_HORIZONTAL_THRESHOLD)) {
+                direction = 'turned_right';
+            } else if (headPose.yawRatio > YAW_THRESHOLD_HIGH) {
                 lookingAway = true;
-                direction = 'right';
+                direction = 'turned_left';
             }
 
-            if (avgVerticalRatio < GAZE_VERTICAL_THRESHOLD) {
+            // Check pitch (up-down head tilt)
+            if (headPose.pitchRatio < PITCH_THRESHOLD_LOW) {
                 lookingAway = true;
-                direction = direction === 'center' ? 'up' : direction + '_up';
-            } else if (avgVerticalRatio > (1 - GAZE_VERTICAL_THRESHOLD)) {
+                direction = direction === 'center' ? 'looking_up' : direction + '_up';
+            } else if (headPose.pitchRatio > PITCH_THRESHOLD_HIGH) {
                 lookingAway = true;
-                direction = direction === 'center' ? 'down' : direction + '_down';
+                direction = direction === 'center' ? 'looking_down' : direction + '_down';
+            }
+
+            // Check face position in frame (head physically shifted)
+            if (faceCenterX < FACE_BOX_X_LOW || faceCenterX > FACE_BOX_X_HIGH) {
+                lookingAway = true;
+                direction = direction === 'center' ? 'off_center' : direction + '_shifted';
             }
 
             return { lookingAway, direction };
         } catch (e) {
-            console.warn('Gaze detection error:', e.message);
+            console.warn('[EyeDetection] Head pose detection error:', e.message);
             // On error, don't penalize the candidate
             return { lookingAway: false, direction: null };
         }
     }
 
-    // Fallback: if only face detector is available (no landmarks)
+    // FALLBACK: Face bounding box position only (no landmarks available)
     if (faceApiLoaded && typeof faceapi !== 'undefined') {
         try {
             const detection = await faceapi.detectSingleFace(
@@ -201,22 +225,23 @@ async function detectGaze() {
                 return { lookingAway: true, direction: 'no_face' };
             }
 
-            // Without landmarks, we can use face box position relative to video center
-            // If the face box is significantly off-center, the person may be looking away
             const box = detection.box;
             const videoWidth = detectionVideo.videoWidth || detectionVideo.width;
             const videoHeight = detectionVideo.videoHeight || detectionVideo.height;
 
-            const faceCenterX = box.x + box.width / 2;
-            const faceCenterY = box.y + box.height / 2;
+            const faceCenterX = (box.x + box.width / 2) / videoWidth;
+            const faceCenterY = (box.y + box.height / 2) / videoHeight;
 
-            const normalizedX = faceCenterX / videoWidth;
-            const normalizedY = faceCenterY / videoHeight;
+            // Debug logging
+            debugLogCounter++;
+            if (debugLogCounter >= DEBUG_LOG_INTERVAL) {
+                console.log(`[EyeDetection] fallback mode - faceCenterX=${faceCenterX.toFixed(3)}, faceCenterY=${faceCenterY.toFixed(3)}`);
+                debugLogCounter = 0;
+            }
 
-            // Face is present and roughly centered - assume looking at screen
-            // Only flag as looking away if face is drastically off-center
-            const lookingAway = normalizedX < 0.2 || normalizedX > 0.8 ||
-                                normalizedY < 0.15 || normalizedY > 0.85;
+            // Face significantly off-center means the person has moved/turned away
+            const lookingAway = faceCenterX < FACE_BOX_X_LOW || faceCenterX > FACE_BOX_X_HIGH ||
+                                faceCenterY < 0.15 || faceCenterY > 0.85;
 
             return { lookingAway, direction: lookingAway ? 'off_center' : 'center' };
         } catch (e) {
@@ -229,57 +254,64 @@ async function detectGaze() {
 }
 
 /**
- * Calculate gaze direction for a single eye based on landmark positions
- * Uses the position of the eye center (approximating iris) relative to eye boundaries
+ * Calculate head pose (yaw and pitch) from 68-point face landmarks.
  *
- * Eye landmarks (6 points per eye):
- * - Point 0: left corner (outer)
- * - Point 1: top-left
- * - Point 2: top-right
- * - Point 3: right corner (inner)
- * - Point 4: bottom-right
- * - Point 5: bottom-left
+ * YAW (left-right head rotation):
+ *   Compare distances from nose tip to each eye corner.
+ *   If face is turned left, nose is closer to left eye corner, farther from right.
+ *   If face is turned right, nose is closer to right eye corner, farther from left.
+ *   Ratio: 0.5 = facing forward, <0.32 = turned right, >0.68 = turned left.
  *
- * The iris/pupil center is estimated as the centroid of the eye region.
- * Gaze is determined by where this center sits relative to the eye boundaries.
+ * PITCH (up-down head tilt):
+ *   Use nose tip position relative to the eye-line and chin.
+ *   The nose normally sits at about 40-60% of the way between eye-line and chin.
+ *   Looking down: nose appears lower (ratio > 0.65).
+ *   Looking up: nose appears higher (ratio < 0.30).
  *
- * @param {Array} eyePoints - Array of 6 landmark points for one eye
- * @returns {{horizontalRatio: number, verticalRatio: number}}
+ * @param {Array} positions - Array of 68 landmark point objects with .x and .y
+ * @returns {{yawRatio: number, pitchRatio: number}}
  */
-function calculateEyeGaze(eyePoints) {
-    // Get eye boundary extremes
-    const leftCorner = eyePoints[0];  // Outer corner
-    const rightCorner = eyePoints[3]; // Inner corner
+function calculateHeadPose(positions) {
+    // Key landmarks
+    const noseTip = positions[30];
+    const chin = positions[8];
+    const leftEyeOuterCorner = positions[36];
+    const rightEyeOuterCorner = positions[45];
 
-    // Top boundary (average of top points)
-    const topY = (eyePoints[1].y + eyePoints[2].y) / 2;
-    // Bottom boundary (average of bottom points)
-    const bottomY = (eyePoints[4].y + eyePoints[5].y) / 2;
+    // --- YAW ESTIMATION ---
+    // Distance from nose tip to each eye outer corner (horizontal distance)
+    const leftDist = Math.abs(noseTip.x - leftEyeOuterCorner.x);
+    const rightDist = Math.abs(noseTip.x - rightEyeOuterCorner.x);
 
-    // Eye center (centroid of all 6 points) - approximates iris center
-    // The centroid of the visible eye region shifts toward where the iris is looking
-    const eyeCenterX = eyePoints.reduce((sum, p) => sum + p.x, 0) / eyePoints.length;
-    const eyeCenterY = eyePoints.reduce((sum, p) => sum + p.y, 0) / eyePoints.length;
-
-    // Calculate horizontal ratio: 0 = looking fully left, 0.5 = center, 1 = fully right
-    const eyeWidth = rightCorner.x - leftCorner.x;
-    let horizontalRatio = 0.5; // default center
-    if (eyeWidth > 0) {
-        horizontalRatio = (eyeCenterX - leftCorner.x) / eyeWidth;
-        // Clamp to [0, 1]
-        horizontalRatio = Math.max(0, Math.min(1, horizontalRatio));
+    // Ratio: 0.5 means nose is equidistant from both eyes (facing forward)
+    // < 0.5 means nose is closer to left eye (turned right in the image)
+    // > 0.5 means nose is closer to right eye (turned left in the image)
+    let yawRatio = 0.5;
+    if (leftDist + rightDist > 0) {
+        yawRatio = leftDist / (leftDist + rightDist);
     }
 
-    // Calculate vertical ratio: 0 = looking up, 0.5 = center, 1 = looking down
-    const eyeHeight = bottomY - topY;
-    let verticalRatio = 0.5; // default center
-    if (eyeHeight > 0) {
-        verticalRatio = (eyeCenterY - topY) / eyeHeight;
-        // Clamp to [0, 1]
-        verticalRatio = Math.max(0, Math.min(1, verticalRatio));
+    // --- PITCH ESTIMATION ---
+    // Eye line Y is the average Y of both eye outer corners
+    const eyeLineY = (leftEyeOuterCorner.y + rightEyeOuterCorner.y) / 2;
+    const chinY = chin.y;
+    const noseY = noseTip.y;
+
+    // Face height from eye-line to chin
+    const faceHeight = chinY - eyeLineY;
+
+    // Where the nose sits relative to the eye-line to chin range
+    // Normal forward-facing: approximately 0.4-0.6
+    // Looking down: nose lower, ratio > 0.65
+    // Looking up: nose higher, ratio < 0.30
+    let pitchRatio = 0.5;
+    if (faceHeight > 0) {
+        pitchRatio = (noseY - eyeLineY) / faceHeight;
+        // Clamp to reasonable range
+        pitchRatio = Math.max(0, Math.min(1, pitchRatio));
     }
 
-    return { horizontalRatio, verticalRatio };
+    return { yawRatio, pitchRatio };
 }
 
 /**

@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-009",
+  "type": "fix",
+  "description": "Rewrite eye_detection.js to use head pose estimation (yaw/pitch from 68-point landmarks) instead of broken eye contour centroid approach. The centroid method always returns ~0.5 ratios because eye contour points outline the eye shape, not the iris position.",
+  "status": "in_progress",
+  "steps": [
+    "Remove the broken calculateEyeGaze function that uses eye contour centroid",
+    "Implement calculateHeadPose using nose tip, chin, eye corners, and mouth corners from 68-point landmarks",
+    "Use yaw ratio (nose-to-eye-corner distances) and pitch ratio (nose position relative to eye-line and chin) as primary gaze detection",
+    "Add face bounding box center check as secondary detection",
+    "Keep existing state machine logic (warningShownForCurrentDistraction, gazeAtScreenFrames hysteresis)",
+    "Keep warning UI, max 5 warnings, 5-second auto-hide",
+    "Keep threshold timing: 2 seconds sustained looking away before warning",
+    "Add periodic console.log for debugging yaw/pitch ratios",
+    "Run tests to verify no backend breakage"
+  ],
+  "acceptance_criteria": [
+    "calculateEyeGaze function is removed",
+    "calculateHeadPose function uses landmark points 30, 8, 36, 45, 48, 54",
+    "Yaw threshold: < 0.32 or > 0.68 triggers looking away",
+    "Pitch threshold: < 0.30 or > 0.65 triggers looking away",
+    "Face box center check: normalized x < 0.25 or > 0.75 triggers looking away",
+    "State machine and hysteresis logic preserved",
+    "Warning UI unchanged",
+    "All existing backend tests pass"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -v"
+  ],
+  "blocked_reason": null,
+  "findings": null
+}
