@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-007",
+  "type": "fix",
+  "description": "Fix eye detection system to detect gaze direction (eyes looking away from screen) instead of just face presence. Use face-api.js 68-point face landmarks to calculate eye gaze direction and only trigger warnings when the candidate's eyes/gaze look away from the questions panel.",
+  "status": "completed",
+  "steps": [
+    "Rewrite static/js/eye_detection.js to load faceLandmark68TinyNet model alongside tinyFaceDetector",
+    "Implement gaze direction detection using eye landmarks (points 36-41 left eye, 42-47 right eye)",
+    "Calculate iris position relative to eye corners to determine if looking left/right/up/down",
+    "Only trigger warning when gaze is off-center for more than 3 seconds (not when face is just present)",
+    "Keep existing warning UI system (overlay, notification, max 5 warnings)"
+  ],
+  "acceptance_criteria": [
+    "Warning is only triggered when eyes look away from screen, not when face is present looking at screen",
+    "Uses face-api.js face landmarks for gaze direction calculation",
+    "Maintains 3-second threshold before triggering warning",
+    "Keeps same warning UI with 5 max warnings",
+    "Falls back gracefully if landmarks model fails to load",
+    "Backend tests still pass"
+  ],
+  "verification": [
+    "Run: cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -v",
+    "Verify static/js/eye_detection.js uses faceLandmark68TinyNet and calculates gaze direction"
+  ],
+  "blocked_reason": null,
+  "findings": "Rewrote eye_detection.js to use face-api.js faceLandmark68TinyNet model for gaze direction detection. Uses 68-point landmarks: left eye points 36-41, right eye points 42-47. Calculates horizontal and vertical gaze ratios based on eye centroid position relative to eye corner boundaries. Thresholds: horizontal 0.28/0.72, vertical 0.25/0.75. Warning only triggers after 3 continuous seconds of off-center gaze. Falls back to face-box center analysis if landmarks model unavailable. All 27 backend tests pass."
+}

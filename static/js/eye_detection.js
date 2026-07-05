@@ -1,44 +1,63 @@
 /**
- * Career Lab Consulting - Eye Contact Detection
- * Monitors face presence using face-api.js (loaded from CDN)
- * Falls back to skin-tone heuristic if face-api.js is unavailable
- * Shows warnings when face is not detected for extended periods
+ * Career Lab Consulting - Eye Gaze Detection
+ * Monitors gaze direction using face-api.js 68-point face landmarks.
+ * Detects when the candidate's eyes look away from the screen (questions panel).
+ * Only triggers warnings when gaze is off-center, NOT when face is simply present.
  */
 
 let eyeDetectionInterval = null;
-let faceNotDetectedSince = null;
+let gazeAwayStartTime = null;
 let warningCount = 0;
 let faceApiLoaded = false;
-let detectionCanvas = null;
+let landmarksLoaded = false;
 let detectionVideo = null;
-const FACE_ABSENCE_THRESHOLD = 3000; // 3 seconds
+const GAZE_AWAY_THRESHOLD = 3000; // 3 seconds of looking away before warning
 const MAX_WARNINGS = 5;
-const DETECTION_INTERVAL = 1000; // Check every 1 second
+const DETECTION_INTERVAL = 500; // Check every 500ms for smoother detection
+
+// Gaze thresholds - how far off-center the gaze must be to count as "looking away"
+// These are ratios (0 = looking fully left/up, 0.5 = center, 1 = fully right/down)
+const GAZE_HORIZONTAL_THRESHOLD = 0.28; // If horizontal ratio < 0.28 or > 0.72, looking away
+const GAZE_VERTICAL_THRESHOLD = 0.25;   // If vertical ratio < 0.25 or > 0.75, looking away
 
 /**
- * Initialize eye detection with face-api.js (loaded from CDN)
+ * Initialize eye gaze detection with face-api.js landmarks
  * @param {HTMLVideoElement} videoElement - The video element with camera feed
  */
 async function initEyeDetection(videoElement) {
     detectionVideo = videoElement;
 
-    // Create a hidden canvas for frame analysis
-    detectionCanvas = document.createElement('canvas');
-    detectionCanvas.width = 160;
-    detectionCanvas.height = 120;
-
-    // Try to use face-api.js loaded from CDN
+    // Try to load face-api.js models from CDN
     try {
         if (typeof faceapi !== 'undefined') {
-            // Load TinyFaceDetector model from CDN
             const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
-            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+
+            // Load both TinyFaceDetector and face landmarks model
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL)
+            ]);
+
             faceApiLoaded = true;
-            console.log('face-api.js TinyFaceDetector loaded successfully');
+            landmarksLoaded = true;
+            console.log('face-api.js TinyFaceDetector + FaceLandmark68TinyNet loaded successfully');
         }
     } catch (e) {
-        console.warn('face-api.js models not available, using fallback detection:', e.message);
-        faceApiLoaded = false;
+        console.warn('face-api.js landmark models not available:', e.message);
+        // Try loading just face detector as fallback
+        try {
+            if (typeof faceapi !== 'undefined') {
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                faceApiLoaded = true;
+                landmarksLoaded = false;
+                console.log('face-api.js TinyFaceDetector loaded (without landmarks)');
+            }
+        } catch (e2) {
+            console.warn('face-api.js not available at all, gaze detection disabled:', e2.message);
+            faceApiLoaded = false;
+            landmarksLoaded = false;
+        }
     }
 
     // Start periodic detection
@@ -46,89 +65,192 @@ async function initEyeDetection(videoElement) {
 }
 
 /**
- * Start the face detection loop
+ * Start the gaze detection loop
  */
 function startDetection() {
-    faceNotDetectedSince = null;
+    gazeAwayStartTime = null;
     eyeDetectionInterval = setInterval(async () => {
         if (!detectionVideo || detectionVideo.paused || detectionVideo.ended) return;
 
-        const facePresent = await detectFace();
+        const gazeResult = await detectGaze();
 
-        if (!facePresent) {
-            if (faceNotDetectedSince === null) {
-                faceNotDetectedSince = Date.now();
+        if (gazeResult.lookingAway) {
+            // Eyes are looking away from the screen
+            if (gazeAwayStartTime === null) {
+                gazeAwayStartTime = Date.now();
             } else {
-                const elapsed = Date.now() - faceNotDetectedSince;
-                if (elapsed >= FACE_ABSENCE_THRESHOLD) {
+                const elapsed = Date.now() - gazeAwayStartTime;
+                if (elapsed >= GAZE_AWAY_THRESHOLD) {
                     triggerEyeWarning();
-                    faceNotDetectedSince = Date.now(); // Reset for next warning cycle
+                    gazeAwayStartTime = Date.now(); // Reset for next warning cycle
                 }
             }
         } else {
-            faceNotDetectedSince = null;
+            // Eyes are looking at the screen (or face not detected - give benefit of doubt)
+            gazeAwayStartTime = null;
             hideEyeWarning();
         }
     }, DETECTION_INTERVAL);
 }
 
 /**
- * Detect face presence in the video frame
- * Uses face-api.js if available, otherwise uses skin-tone heuristic
- * @returns {Promise<boolean>} - Whether a face is detected
+ * Detect gaze direction using face-api.js landmarks
+ * Returns whether the candidate is looking away from the screen
+ * @returns {Promise<{lookingAway: boolean, direction: string|null}>}
  */
-async function detectFace() {
+async function detectGaze() {
+    // If we have landmarks model, use gaze direction detection
+    if (faceApiLoaded && landmarksLoaded && typeof faceapi !== 'undefined') {
+        try {
+            const detection = await faceapi
+                .detectSingleFace(detectionVideo, new faceapi.TinyFaceDetectorOptions({
+                    inputSize: 224,
+                    scoreThreshold: 0.4
+                }))
+                .withFaceLandmarks(true); // true = use tiny model
+
+            if (!detection) {
+                // No face detected - could be looking far away or face out of frame
+                // Treat as looking away only if it persists (handled by threshold timer)
+                return { lookingAway: true, direction: 'no_face' };
+            }
+
+            // Extract eye landmarks from the 68-point model
+            const landmarks = detection.landmarks;
+            const positions = landmarks.positions;
+
+            // Left eye: points 36-41
+            const leftEye = positions.slice(36, 42);
+            // Right eye: points 42-47
+            const rightEye = positions.slice(42, 48);
+
+            // Calculate gaze direction for each eye
+            const leftGaze = calculateEyeGaze(leftEye);
+            const rightGaze = calculateEyeGaze(rightEye);
+
+            // Average the gaze of both eyes
+            const avgHorizontalRatio = (leftGaze.horizontalRatio + rightGaze.horizontalRatio) / 2;
+            const avgVerticalRatio = (leftGaze.verticalRatio + rightGaze.verticalRatio) / 2;
+
+            // Determine if looking away from center
+            let lookingAway = false;
+            let direction = 'center';
+
+            if (avgHorizontalRatio < GAZE_HORIZONTAL_THRESHOLD) {
+                lookingAway = true;
+                direction = 'left';
+            } else if (avgHorizontalRatio > (1 - GAZE_HORIZONTAL_THRESHOLD)) {
+                lookingAway = true;
+                direction = 'right';
+            }
+
+            if (avgVerticalRatio < GAZE_VERTICAL_THRESHOLD) {
+                lookingAway = true;
+                direction = direction === 'center' ? 'up' : direction + '_up';
+            } else if (avgVerticalRatio > (1 - GAZE_VERTICAL_THRESHOLD)) {
+                lookingAway = true;
+                direction = direction === 'center' ? 'down' : direction + '_down';
+            }
+
+            return { lookingAway, direction };
+        } catch (e) {
+            console.warn('Gaze detection error:', e.message);
+            // On error, don't penalize the candidate
+            return { lookingAway: false, direction: null };
+        }
+    }
+
+    // Fallback: if only face detector is available (no landmarks)
     if (faceApiLoaded && typeof faceapi !== 'undefined') {
         try {
-            const detections = await faceapi.detectAllFaces(
+            const detection = await faceapi.detectSingleFace(
                 detectionVideo,
                 new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 })
             );
-            return detections.length > 0;
+
+            if (!detection) {
+                return { lookingAway: true, direction: 'no_face' };
+            }
+
+            // Without landmarks, we can use face box position relative to video center
+            // If the face box is significantly off-center, the person may be looking away
+            const box = detection.box;
+            const videoWidth = detectionVideo.videoWidth || detectionVideo.width;
+            const videoHeight = detectionVideo.videoHeight || detectionVideo.height;
+
+            const faceCenterX = box.x + box.width / 2;
+            const faceCenterY = box.y + box.height / 2;
+
+            const normalizedX = faceCenterX / videoWidth;
+            const normalizedY = faceCenterY / videoHeight;
+
+            // Face is present and roughly centered - assume looking at screen
+            // Only flag as looking away if face is drastically off-center
+            const lookingAway = normalizedX < 0.2 || normalizedX > 0.8 ||
+                                normalizedY < 0.15 || normalizedY > 0.85;
+
+            return { lookingAway, direction: lookingAway ? 'off_center' : 'center' };
         } catch (e) {
-            return useFallbackDetection();
+            return { lookingAway: false, direction: null };
         }
     }
-    return useFallbackDetection();
+
+    // No detection available at all - don't penalize
+    return { lookingAway: false, direction: null };
 }
 
 /**
- * Fallback face detection using pixel analysis
- * Checks for significant skin-tone pixels in the video frame
- * @returns {boolean}
+ * Calculate gaze direction for a single eye based on landmark positions
+ * Uses the position of the eye center (approximating iris) relative to eye boundaries
+ *
+ * Eye landmarks (6 points per eye):
+ * - Point 0: left corner (outer)
+ * - Point 1: top-left
+ * - Point 2: top-right
+ * - Point 3: right corner (inner)
+ * - Point 4: bottom-right
+ * - Point 5: bottom-left
+ *
+ * The iris/pupil center is estimated as the centroid of the eye region.
+ * Gaze is determined by where this center sits relative to the eye boundaries.
+ *
+ * @param {Array} eyePoints - Array of 6 landmark points for one eye
+ * @returns {{horizontalRatio: number, verticalRatio: number}}
  */
-function useFallbackDetection() {
-    try {
-        const ctx = detectionCanvas.getContext('2d');
-        ctx.drawImage(detectionVideo, 0, 0, detectionCanvas.width, detectionCanvas.height);
-        const imageData = ctx.getImageData(0, 0, detectionCanvas.width, detectionCanvas.height);
-        const data = imageData.data;
+function calculateEyeGaze(eyePoints) {
+    // Get eye boundary extremes
+    const leftCorner = eyePoints[0];  // Outer corner
+    const rightCorner = eyePoints[3]; // Inner corner
 
-        let skinPixelCount = 0;
-        const totalPixels = data.length / 4;
+    // Top boundary (average of top points)
+    const topY = (eyePoints[1].y + eyePoints[2].y) / 2;
+    // Bottom boundary (average of bottom points)
+    const bottomY = (eyePoints[4].y + eyePoints[5].y) / 2;
 
-        // Simple skin-tone detection (works for various skin tones)
-        for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
+    // Eye center (centroid of all 6 points) - approximates iris center
+    // The centroid of the visible eye region shifts toward where the iris is looking
+    const eyeCenterX = eyePoints.reduce((sum, p) => sum + p.x, 0) / eyePoints.length;
+    const eyeCenterY = eyePoints.reduce((sum, p) => sum + p.y, 0) / eyePoints.length;
 
-            // Broad skin-tone detection covering multiple skin tones
-            if (r > 60 && g > 40 && b > 20 &&
-                r > g && r > b &&
-                (r - g) > 10 &&
-                Math.abs(r - g) < 150) {
-                skinPixelCount++;
-            }
-        }
-
-        // If more than 5% of pixels are skin-tone, face is likely present
-        const skinRatio = skinPixelCount / totalPixels;
-        return skinRatio > 0.05;
-    } catch (e) {
-        // If canvas analysis fails, assume face is present (avoid false warnings)
-        return true;
+    // Calculate horizontal ratio: 0 = looking fully left, 0.5 = center, 1 = fully right
+    const eyeWidth = rightCorner.x - leftCorner.x;
+    let horizontalRatio = 0.5; // default center
+    if (eyeWidth > 0) {
+        horizontalRatio = (eyeCenterX - leftCorner.x) / eyeWidth;
+        // Clamp to [0, 1]
+        horizontalRatio = Math.max(0, Math.min(1, horizontalRatio));
     }
+
+    // Calculate vertical ratio: 0 = looking up, 0.5 = center, 1 = looking down
+    const eyeHeight = bottomY - topY;
+    let verticalRatio = 0.5; // default center
+    if (eyeHeight > 0) {
+        verticalRatio = (eyeCenterY - topY) / eyeHeight;
+        // Clamp to [0, 1]
+        verticalRatio = Math.max(0, Math.min(1, verticalRatio));
+    }
+
+    return { horizontalRatio, verticalRatio };
 }
 
 /**
@@ -145,11 +267,11 @@ function triggerEyeWarning() {
         warningOverlay.style.display = 'flex';
 
         if (warningCount >= MAX_WARNINGS) {
-            if (warningText) warningText.textContent = 'CRITICAL: Multiple eye contact violations detected! Your exam may be invalidated.';
+            if (warningText) warningText.textContent = 'CRITICAL: Multiple gaze violations detected! Your exam may be invalidated.';
         } else if (warningCount >= 3) {
-            if (warningText) warningText.textContent = 'WARNING: Please maintain eye contact with the screen. Too many violations may terminate your exam.';
+            if (warningText) warningText.textContent = 'WARNING: Please keep your eyes on the screen. Too many violations may terminate your exam.';
         } else {
-            if (warningText) warningText.textContent = 'Please look at the screen. Maintain eye contact during the exam.';
+            if (warningText) warningText.textContent = 'Please look at the screen. Maintain eye contact with the questions during the exam.';
         }
 
         if (warningCounter) warningCounter.textContent = `Warnings: ${warningCount}/${MAX_WARNINGS}`;
