@@ -11,7 +11,8 @@ let warningCount = 0;
 let faceApiLoaded = false;
 let landmarksLoaded = false;
 let detectionVideo = null;
-const GAZE_AWAY_THRESHOLD = 3000; // 3 seconds of looking away before warning
+let warningShownForCurrentDistraction = false; // Prevents repeated warnings for a single distraction event
+const GAZE_AWAY_THRESHOLD = 2000; // 2 seconds of looking away before warning (brief threshold to avoid flickers)
 const MAX_WARNINGS = 5;
 const DETECTION_INTERVAL = 500; // Check every 500ms for smoother detection
 
@@ -66,9 +67,16 @@ async function initEyeDetection(videoElement) {
 
 /**
  * Start the gaze detection loop
+ *
+ * State machine:
+ *   LOOKING_AT_SCREEN -> gaze leaves screen -> start timer (GAZE_AWAY_DETECTED)
+ *   GAZE_AWAY_DETECTED -> threshold elapsed -> trigger ONE warning (WARNING_SHOWN)
+ *   WARNING_SHOWN -> still looking away -> DO NOTHING (no repeated warnings)
+ *   WARNING_SHOWN / GAZE_AWAY_DETECTED -> gaze returns -> reset to LOOKING_AT_SCREEN
  */
 function startDetection() {
     gazeAwayStartTime = null;
+    warningShownForCurrentDistraction = false;
     eyeDetectionInterval = setInterval(async () => {
         if (!detectionVideo || detectionVideo.paused || detectionVideo.ended) return;
 
@@ -78,17 +86,19 @@ function startDetection() {
             // Eyes are looking away from the screen
             if (gazeAwayStartTime === null) {
                 gazeAwayStartTime = Date.now();
-            } else {
+            } else if (!warningShownForCurrentDistraction) {
+                // Only trigger a warning if we haven't already shown one for this distraction
                 const elapsed = Date.now() - gazeAwayStartTime;
                 if (elapsed >= GAZE_AWAY_THRESHOLD) {
                     triggerEyeWarning();
-                    gazeAwayStartTime = Date.now(); // Reset for next warning cycle
+                    warningShownForCurrentDistraction = true; // Mark: warning shown, do not repeat
                 }
             }
+            // If warningShownForCurrentDistraction is true and still looking away, do nothing
         } else {
-            // Eyes are looking at the screen (or face not detected - give benefit of doubt)
+            // Eyes are back on screen - reset state for the next distraction event
             gazeAwayStartTime = null;
-            hideEyeWarning();
+            warningShownForCurrentDistraction = false;
         }
     }, DETECTION_INTERVAL);
 }
@@ -276,10 +286,10 @@ function triggerEyeWarning() {
 
         if (warningCounter) warningCounter.textContent = `Warnings: ${warningCount}/${MAX_WARNINGS}`;
 
-        // Auto-hide after 3 seconds
+        // Auto-hide after 5 seconds
         setTimeout(() => {
             hideEyeWarning();
-        }, 3000);
+        }, 5000);
     }
 
     // Show notification
