@@ -2,7 +2,7 @@
   "id": "FEAT-008",
   "type": "fix",
   "description": "Fix three user-reported issues: (1) Remove extra 'Career Lab Consulting' text and Admin Panel button from index.html, (2) Fix eye detection to properly reset after first warning using debounce/hysteresis, (3) Replace generic action cards on result page with dynamic topicwise study plan.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Remove 'Career Lab Consulting' text from nav-brand in base.html (keep only logo image)",
     "Remove Admin Panel button from hero-actions in index.html",
