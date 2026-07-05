@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-010",
+  "type": "fix",
+  "description": "Rewrite eye_detection.js with multi-signal proctoring: browser focus detection (tab switch/window blur), mouse leaving browser, WebGazer.js for actual eye/gaze tracking, plus head pose as supplementary backup. This detects subtle eye movements without requiring head movement.",
+  "status": "in_progress",
+  "steps": [
+    "Add WebGazer.js CDN script tag to templates/exam_questions.html before eye_detection.js",
+    "Completely rewrite static/js/eye_detection.js with multi-signal approach: browser focus events (immediate warning on tab switch/blur), mouse leaving window (2s delay), WebGazer.js gaze tracking (2s delay when gaze outside exam area), head pose as supplementary (2s delay)",
+    "Keep same UI overlays and warning count logic (MAX_WARNINGS=5, auto-hide after 5s)",
+    "Verify all backend tests pass"
+  ],
+  "acceptance_criteria": [
+    "Tab switch / window blur triggers IMMEDIATE warning (no delay)",
+    "Mouse leaving browser window triggers warning after 2 seconds",
+    "WebGazer.js gaze outside exam area triggers warning after 2 seconds",
+    "Head pose detection triggers warning after 2 seconds (backup signal)",
+    "Each signal independently can trigger a warning",
+    "One warning per distraction event, reset when back to normal",
+    "MAX_WARNINGS = 5 with same UI overlays",
+    "5-second auto-hide for warning overlay",
+    "WebGazer.js CDN loaded in exam_questions.html",
+    "All existing backend tests pass"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -v"
+  ],
+  "blocked_reason": null,
+  "findings": null
+}
