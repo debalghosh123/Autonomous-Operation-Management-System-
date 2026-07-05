@@ -1,6 +1,6 @@
 """
 Career Lab Consulting - Python Question Bank
-1000 questions for AI Agent Development curriculum
+1000 questions for AI Agent Development curriculum (Part 1 of 10)
 Topics: python_setup, variables_datatypes, strings, lists_tuples_sets,
         dictionaries_json, control_flow, loops, functions_scope,
         modules_packages, file_io_errors, oop_basics, oop_advanced,

@@ -129,8 +129,8 @@ def init_db():
 
 
 def _seed_questions(cursor):
-    """Seed the database with 1000 Python evaluation questions from question bank."""
-    from app.question_bank import QUESTION_BANK
+    """Seed the database with 10000 Python evaluation questions from question bank."""
+    from app.question_bank_all import QUESTION_BANK
 
     for q in QUESTION_BANK:
         cursor.execute("""
