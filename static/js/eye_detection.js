@@ -1,41 +1,41 @@
 /**
  * Career Lab Consulting - Multi-Signal Proctoring System
  * 
- * Detects when a candidate is distracted using MULTIPLE independent signals:
+ * Detects when a candidate is distracted using multiple independent signals:
  * 
- * Signal 1: Browser Focus Detection (most reliable)
- *   - document.visibilitychange: detects tab switches
- *   - window.blur / window.focus: detects when browser loses focus
- *   - IMMEDIATE warning (no delay) -- these are definitive proof of distraction
+ * Signal 1: Tab Visibility Change
+ *   - document.visibilitychange: detects tab switches (immediate warning)
  * 
- * Signal 2: Mouse/Pointer Leaving the Exam Area
- *   - document.mouseleave: mouse left the browser window
- *   - Warning after 2 seconds (might be accidental)
+ * Signal 2: Window Blur
+ *   - window.blur: detects alt-tab, clicking other windows (immediate warning)
  * 
- * Signal 3: WebGazer.js Eye Tracking (actual gaze prediction)
- *   - Uses ML to predict where on screen the user is looking
- *   - If gaze point is OUTSIDE the exam container for 2+ seconds, trigger warning
- *   - This detects subtle eye movements WITHOUT head movement
+ * Signal 3: Mouse/Pointer Leaving the Browser Window
+ *   - document.mouseleave: mouse left the browser
+ *   - Warning after 2 seconds sustained outside
  * 
- * Signal 4: Head Pose Estimation (supplementary backup)
- *   - Uses face-api.js 68-point landmarks to estimate head yaw/pitch
+ * Signal 4: Head Pose Estimation (face-api.js)
+ *   - Uses 68-point landmarks to estimate head yaw/pitch
  *   - Warning after 2 seconds of head turned away
+ *   - Resets after firing so next event can trigger again
  * 
- * Each signal independently can trigger a warning.
- * One warning per distraction event; resets when the candidate returns focus.
- * MAX_WARNINGS = 5 with same UI overlays and 5-second auto-hide.
+ * ARCHITECTURE: Global cooldown approach
+ *   - ONE global cooldown (6 seconds between any warnings)
+ *   - Every distraction event fires a warning as long as cooldown has elapsed
+ *   - No per-signal state flags -- simpler and more reliable
+ *   - MAX_WARNINGS = 5 with same UI overlays and 5-second auto-hide
  */
 
 // ========================
 // Configuration
 // ========================
 const MAX_WARNINGS = 5;
-const GAZE_AWAY_THRESHOLD = 2000;   // 2 seconds for gaze/mouse/head signals
+const WARNING_COOLDOWN = 6000;      // 6 seconds between warnings (5s display + 1s buffer)
 const WARNING_AUTO_HIDE_MS = 5000;  // Auto-hide warning overlay after 5 seconds
+const MOUSE_LEAVE_DELAY = 2000;     // 2 seconds before mouse-leave triggers
+const HEAD_POSE_DELAY = 2000;       // 2 seconds before head pose triggers
 const DETECTION_INTERVAL = 500;     // Head pose check every 500ms
-const GAZE_RETURN_FRAMES = 3;      // 3 consecutive "at screen" frames (1.5s) to reset head pose
 
-// Head pose thresholds (from previous implementation)
+// Head pose thresholds
 const YAW_THRESHOLD_LOW = 0.32;
 const YAW_THRESHOLD_HIGH = 0.68;
 const PITCH_THRESHOLD_LOW = 0.30;
@@ -47,31 +47,32 @@ const FACE_BOX_X_HIGH = 0.75;
 // State
 // ========================
 let warningCount = 0;
+let lastWarningTime = 0;
 let detectionVideo = null;
 let eyeDetectionInterval = null;
 
-// Signal 1: Browser focus state
-let focusWarningShown = false;
-
-// Signal 2: Mouse leave state
+// Mouse leave state
 let mouseLeaveTimer = null;
-let mouseWarningShown = false;
 
-// Signal 3: WebGazer state
-let webgazerActive = false;
-let gazeOutsideStartTime = null;
-let gazeWarningShown = false;
-
-// Signal 4: Head pose state
+// Head pose state
 let faceApiLoaded = false;
 let landmarksLoaded = false;
 let headPoseAwayStartTime = null;
-let headPoseWarningShown = false;
-let headPoseAtScreenFrames = 0;
 
 // Debug logging
 let debugLogCounter = 0;
 const DEBUG_LOG_INTERVAL = 6;
+
+// ========================
+// Global Cooldown
+// ========================
+
+/**
+ * Check if enough time has passed since the last warning
+ */
+function canShowWarning() {
+    return (Date.now() - lastWarningTime) >= WARNING_COOLDOWN;
+}
 
 // ========================
 // Initialization
@@ -86,72 +87,53 @@ async function initEyeDetection(videoElement) {
     
     console.log('[Proctoring] Initializing multi-signal proctoring system...');
     
-    // Initialize all signals in parallel
-    initBrowserFocusDetection();
+    // Initialize all signals
+    initTabVisibilityDetection();
+    initWindowBlurDetection();
     initMouseLeaveDetection();
-    initWebGazer();
     await initHeadPoseDetection();
     
     console.log('[Proctoring] All detection signals active');
 }
 
 // ========================
-// Signal 1: Browser Focus Detection
+// Signal 1: Tab Visibility Change
 // ========================
 
-function initBrowserFocusDetection() {
-    // Tab visibility change (tab switch, minimize)
+function initTabVisibilityDetection() {
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             console.log('[Proctoring] Tab switch detected (visibilitychange)');
-            triggerDistraction('tab_switch');
-        } else {
-            // Returned to tab
-            resetFocusState();
+            triggerEyeWarning('You switched tabs. Please stay focused on the exam.');
         }
     });
 
-    // Window blur (alt-tab, clicking another window)
-    window.addEventListener('blur', () => {
-        console.log('[Proctoring] Window blur detected');
-        triggerDistraction('window_blur');
-    });
-
-    // Window focus regained
-    window.addEventListener('focus', () => {
-        resetFocusState();
-    });
-
-    console.log('[Proctoring] Signal 1 (Browser Focus) initialized');
-}
-
-function triggerDistraction(source) {
-    // IMMEDIATE warning for tab switch / window blur (no delay)
-    if (!focusWarningShown) {
-        focusWarningShown = true;
-        triggerEyeWarning(`Distraction detected: ${source === 'tab_switch' ? 'You switched tabs' : 'You left the exam window'}. Please stay focused on the exam.`);
-    }
-}
-
-function resetFocusState() {
-    focusWarningShown = false;
+    console.log('[Proctoring] Signal 1 (Tab Visibility) initialized');
 }
 
 // ========================
-// Signal 2: Mouse Leaving Browser
+// Signal 2: Window Blur
+// ========================
+
+function initWindowBlurDetection() {
+    window.addEventListener('blur', () => {
+        console.log('[Proctoring] Window blur detected');
+        triggerEyeWarning('You left the exam window. Please stay focused on the exam.');
+    });
+
+    console.log('[Proctoring] Signal 2 (Window Blur) initialized');
+}
+
+// ========================
+// Signal 3: Mouse Leaving Browser
 // ========================
 
 function initMouseLeaveDetection() {
     document.addEventListener('mouseleave', () => {
-        if (!mouseWarningShown) {
-            mouseLeaveTimer = setTimeout(() => {
-                if (!mouseWarningShown) {
-                    mouseWarningShown = true;
-                    console.log('[Proctoring] Mouse left browser window for 2+ seconds');
-                    triggerEyeWarning('Your cursor left the exam window. Please keep your focus on the exam.');
-                }
-            }, GAZE_AWAY_THRESHOLD);
-        }
+        mouseLeaveTimer = setTimeout(() => {
+            console.log('[Proctoring] Mouse left browser window for 2+ seconds');
+            triggerEyeWarning('Your cursor left the exam window. Please keep your focus on the exam.');
+        }, MOUSE_LEAVE_DELAY);
     });
 
     document.addEventListener('mouseenter', () => {
@@ -159,76 +141,13 @@ function initMouseLeaveDetection() {
             clearTimeout(mouseLeaveTimer);
             mouseLeaveTimer = null;
         }
-        mouseWarningShown = false;
     });
 
-    console.log('[Proctoring] Signal 2 (Mouse Leave) initialized');
+    console.log('[Proctoring] Signal 3 (Mouse Leave) initialized');
 }
 
 // ========================
-// Signal 3: WebGazer.js Eye Tracking
-// ========================
-
-function initWebGazer() {
-    if (typeof webgazer === 'undefined') {
-        console.warn('[Proctoring] WebGazer.js not available - skipping gaze tracking signal');
-        return;
-    }
-
-    try {
-        webgazer.setGazeListener((data, timestamp) => {
-            if (!data) return;
-
-            // Get exam container bounds
-            const examContainer = document.getElementById('exam-form');
-            if (!examContainer) return;
-
-            const rect = examContainer.getBoundingClientRect();
-            
-            // Add some margin around the exam area (50px buffer for accuracy tolerance)
-            const margin = 50;
-            const isLookingAtExam = (
-                data.x >= (rect.left - margin) &&
-                data.x <= (rect.right + margin) &&
-                data.y >= (rect.top - margin) &&
-                data.y <= (rect.bottom + margin)
-            );
-
-            if (!isLookingAtExam) {
-                // Gaze is outside exam area
-                if (gazeOutsideStartTime === null) {
-                    gazeOutsideStartTime = Date.now();
-                } else if (!gazeWarningShown) {
-                    const elapsed = Date.now() - gazeOutsideStartTime;
-                    if (elapsed >= GAZE_AWAY_THRESHOLD) {
-                        gazeWarningShown = true;
-                        console.log('[Proctoring] WebGazer: gaze outside exam area for 2+ seconds');
-                        triggerEyeWarning('Your eyes appear to be looking away from the exam questions. Please maintain focus.');
-                    }
-                }
-            } else {
-                // Gaze returned to exam area
-                gazeOutsideStartTime = null;
-                gazeWarningShown = false;
-            }
-        }).begin();
-
-        // Hide WebGazer's built-in UI (we have our own camera preview)
-        webgazer.showPredictionPoints(false);
-        webgazer.showVideo(false);
-        webgazer.showFaceOverlay(false);
-        webgazer.showFaceFeedbackBox(false);
-        
-        webgazerActive = true;
-        console.log('[Proctoring] Signal 3 (WebGazer Eye Tracking) initialized');
-    } catch (e) {
-        console.warn('[Proctoring] WebGazer initialization failed:', e.message);
-        webgazerActive = false;
-    }
-}
-
-// ========================
-// Signal 4: Head Pose Detection (Backup)
+// Signal 4: Head Pose Detection
 // ========================
 
 async function initHeadPoseDetection() {
@@ -250,7 +169,6 @@ async function initHeadPoseDetection() {
         console.log('[Proctoring] Signal 4 (Head Pose) initialized with face-api.js landmarks');
     } catch (e) {
         console.warn('[Proctoring] face-api.js model loading failed:', e.message);
-        // Try just face detector without landmarks
         try {
             const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
             await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
@@ -270,8 +188,6 @@ async function initHeadPoseDetection() {
 
 function startHeadPoseDetection() {
     headPoseAwayStartTime = null;
-    headPoseWarningShown = false;
-    headPoseAtScreenFrames = 0;
 
     eyeDetectionInterval = setInterval(async () => {
         if (!detectionVideo || detectionVideo.paused || detectionVideo.ended) return;
@@ -280,24 +196,20 @@ function startHeadPoseDetection() {
         const gazeResult = await detectHeadPose();
 
         if (gazeResult.lookingAway) {
-            headPoseAtScreenFrames = 0;
-
             if (headPoseAwayStartTime === null) {
                 headPoseAwayStartTime = Date.now();
-            } else if (!headPoseWarningShown) {
+            } else {
                 const elapsed = Date.now() - headPoseAwayStartTime;
-                if (elapsed >= GAZE_AWAY_THRESHOLD) {
-                    headPoseWarningShown = true;
+                if (elapsed >= HEAD_POSE_DELAY) {
                     console.log('[Proctoring] Head pose: looking away for 2+ seconds, direction:', gazeResult.direction);
                     triggerEyeWarning('Head movement detected away from screen. Please face the exam directly.');
+                    // Reset so the NEXT time head turns away, it starts fresh
+                    headPoseAwayStartTime = null;
                 }
             }
         } else {
-            headPoseAtScreenFrames++;
-            if (headPoseAtScreenFrames >= GAZE_RETURN_FRAMES) {
-                headPoseAwayStartTime = null;
-                headPoseWarningShown = false;
-            }
+            // Head returned to facing screen -- reset timer
+            headPoseAwayStartTime = null;
         }
     }, DETECTION_INTERVAL);
 }
@@ -433,10 +345,15 @@ function calculateHeadPose(positions) {
 // ========================
 
 /**
- * Trigger an eye/gaze warning with a specific message
+ * Trigger a proctoring warning with a specific message.
+ * Uses a global cooldown to prevent spamming -- only one warning per 6 seconds.
  * @param {string} message - Custom warning message for the specific signal
  */
 function triggerEyeWarning(message) {
+    if (!canShowWarning()) return;  // Still in cooldown
+    if (warningCount >= MAX_WARNINGS) return;  // Max reached
+
+    lastWarningTime = Date.now();
     warningCount++;
 
     const warningOverlay = document.getElementById('eye-warning-overlay');
@@ -508,16 +425,6 @@ function stopEyeDetection() {
     if (mouseLeaveTimer) {
         clearTimeout(mouseLeaveTimer);
         mouseLeaveTimer = null;
-    }
-
-    // Stop WebGazer
-    if (webgazerActive && typeof webgazer !== 'undefined') {
-        try {
-            webgazer.end();
-        } catch (e) {
-            console.warn('[Proctoring] Error stopping WebGazer:', e.message);
-        }
-        webgazerActive = false;
     }
 }
 
