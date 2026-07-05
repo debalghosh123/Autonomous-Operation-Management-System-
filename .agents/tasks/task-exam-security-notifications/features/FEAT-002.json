@@ -1,0 +1,23 @@
+{
+  "id": "FEAT-002",
+  "type": "fix",
+  "description": "Address code review findings: log notification scheduling errors, add missing tests for /admin/exam/{exam_id} auth and notification insertion, add startup warning for default SECRET_KEY.",
+  "status": "in_progress",
+  "steps": [
+    "In app/routers/exam.py, change the 'except Exception: pass' around the follow-up notification insert to log the error instead of silently swallowing it.",
+    "In tests/test_app.py, add a test that accessing /admin/exam/1 without login redirects to /admin/login.",
+    "In tests/test_app.py, add a test that after a failed exam submission, a follow_up_7day row exists in the notifications table.",
+    "In main.py, after startup diagnostics, add a warning if settings.SECRET_KEY is the default value."
+  ],
+  "acceptance_criteria": [
+    "The except block around follow-up notification insert prints a descriptive error message instead of silently passing",
+    "A test exists verifying /admin/exam/{exam_id} requires auth",
+    "A test exists verifying follow_up_7day notification is created for failed candidates",
+    "A startup warning is printed if SECRET_KEY has the default value"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -v"
+  ],
+  "blocked_reason": null,
+  "findings": null
+}

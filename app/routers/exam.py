@@ -240,8 +240,8 @@ async def submit_exam(request: Request, exam_id: int):
                         follow_up_date.isoformat(),
                     ),
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[Notification] Error scheduling follow-up: {e}")
 
     if candidate["phone"]:
         try:
