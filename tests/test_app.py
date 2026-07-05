@@ -213,7 +213,7 @@ def test_exam_cooldown():
     test_client = TestClient(app)
     reg_response = test_client.post(
         "/register",
-        data={"name": "Cooldown Tester", "email": "cooldown@example.com", "phone": ""},
+        data={"name": "Cooldown Tester", "email": "cooldown@example.com", "phone": "+1111111111"},
         follow_redirects=False,
     )
     location = reg_response.headers["location"]
@@ -238,7 +238,7 @@ def test_exam_start():
     # First register a candidate
     reg_response = client.post(
         "/register",
-        data={"name": "Exam Tester", "email": "examtester@example.com", "phone": ""},
+        data={"name": "Exam Tester", "email": "examtester@example.com", "phone": "+2222222222"},
         follow_redirects=False,
     )
     location = reg_response.headers["location"]
@@ -262,7 +262,7 @@ def test_follow_up_notification_created_on_failure():
     # Register a candidate
     reg_response = test_client.post(
         "/register",
-        data={"name": "Notification Tester", "email": "notify_test@example.com", "phone": ""},
+        data={"name": "Notification Tester", "email": "notify_test@example.com", "phone": "+3333333333"},
         follow_redirects=False,
     )
     location = reg_response.headers["location"]
@@ -311,7 +311,7 @@ def test_duplicate_email_handling():
     """Test registering with existing email."""
     response = client.post(
         "/register",
-        data={"name": "Duplicate", "email": "test@example.com", "phone": ""},
+        data={"name": "Duplicate", "email": "test@example.com", "phone": "+4444444444"},
         follow_redirects=False,
     )
     # Should redirect to existing candidate's exam
