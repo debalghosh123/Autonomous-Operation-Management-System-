@@ -286,11 +286,26 @@ async def exam_result(request: Request, exam_id: int):
                 (exam_id,),
             ).fetchall()
 
+        # Calculate topic performance from answers
+        topic_performance = {}
+        for ans in answers:
+            topic = ans["topic"] if ans["topic"] else "python"
+            if topic not in topic_performance:
+                topic_performance[topic] = {"correct": 0, "total": 0, "percentage": 0}
+            topic_performance[topic]["total"] += 1
+            if ans["is_correct"]:
+                topic_performance[topic]["correct"] += 1
+
+        for topic in topic_performance:
+            t = topic_performance[topic]
+            t["percentage"] = round((t["correct"] / t["total"]) * 100, 1) if t["total"] > 0 else 0
+
         return templates.TemplateResponse("exam_result.html", {"request": request, 
                 "exam": dict(exam),
                 "candidate": dict(candidate),
                 "answers": [dict(a) for a in answers],
                 "passed": exam["passed"] == 1,
                 "passing_percentage": settings.PASSING_PERCENTAGE,
+                "topic_performance": topic_performance,
             },
         )

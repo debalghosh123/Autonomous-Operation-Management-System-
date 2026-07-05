@@ -1,0 +1,24 @@
+{
+  "id": "FEAT-008",
+  "type": "fix",
+  "description": "Fix three user-reported issues: (1) Remove extra 'Career Lab Consulting' text and Admin Panel button from index.html, (2) Fix eye detection to properly reset after first warning using debounce/hysteresis, (3) Replace generic action cards on result page with dynamic topicwise study plan.",
+  "status": "completed",
+  "steps": [
+    "Remove 'Career Lab Consulting' text from nav-brand in base.html (keep only logo image)",
+    "Remove Admin Panel button from hero-actions in index.html",
+    "Fix eye_detection.js: add gazeAtScreenFrames counter with hysteresis (3+ consecutive frames = 1.5s before resetting distraction state)",
+    "Update exam.py exam_result endpoint to calculate topic_performance from answers and pass it to template",
+    "Replace generic action cards in exam_result.html with dynamic topicwise study plan showing weak topics and what to study"
+  ],
+  "acceptance_criteria": [
+    "No duplicate 'Career Lab Consulting' text appears below navbar brand",
+    "Admin Panel button removed from index.html hero section",
+    "Eye detection properly detects multiple distraction events (not just first one)",
+    "Eye detection requires 3+ consecutive looking-at-screen frames before resetting state",
+    "Result page shows dynamic topicwise study plan for topics below 75%",
+    "All backend tests pass"
+  ],
+  "verification": [
+    "Run: cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -q"
+  ]
+}
