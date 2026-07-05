@@ -2,7 +2,7 @@
   "id": "FEAT-009",
   "type": "fix",
   "description": "Rewrite eye_detection.js to use head pose estimation (yaw/pitch from 68-point landmarks) instead of broken eye contour centroid approach. The centroid method always returns ~0.5 ratios because eye contour points outline the eye shape, not the iris position.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Remove the broken calculateEyeGaze function that uses eye contour centroid",
     "Implement calculateHeadPose using nose tip, chin, eye corners, and mouth corners from 68-point landmarks",
@@ -28,5 +28,5 @@
     "cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -v"
   ],
   "blocked_reason": null,
-  "findings": null
+  "findings": "Completely replaced calculateEyeGaze (eye contour centroid) with calculateHeadPose (yaw/pitch from landmarks 30, 8, 36, 45). Added face bounding box center check as secondary detection. All 37 backend tests pass. The fix addresses the fundamental problem: eye contour centroids always return ~0.5 regardless of gaze direction, while head pose ratios change significantly when the user turns their head."
 }
