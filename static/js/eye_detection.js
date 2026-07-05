@@ -19,9 +19,10 @@
  *   - Resets after firing so next event can trigger again
  * 
  * ARCHITECTURE: Global cooldown approach
- *   - ONE global cooldown (6 seconds between any warnings)
+ *   - ONE global cooldown (1.5 seconds between any warnings)
  *   - Every distraction event fires a warning as long as cooldown has elapsed
  *   - No per-signal state flags -- simpler and more reliable
+ *   - Navigation grace period suppresses false blur/focus events during question changes
  *   - MAX_WARNINGS = 5 with same UI overlays and 5-second auto-hide
  */
 
@@ -29,11 +30,12 @@
 // Configuration
 // ========================
 const MAX_WARNINGS = 5;
-const WARNING_COOLDOWN = 6000;      // 6 seconds between warnings (5s display + 1s buffer)
+const WARNING_COOLDOWN = 1500;      // 1.5 seconds between warnings (prevents double-fire only)
 const WARNING_AUTO_HIDE_MS = 5000;  // Auto-hide warning overlay after 5 seconds
 const MOUSE_LEAVE_DELAY = 2000;     // 2 seconds before mouse-leave triggers
 const HEAD_POSE_DELAY = 2000;       // 2 seconds before head pose triggers
 const DETECTION_INTERVAL = 500;     // Head pose check every 500ms
+const NAVIGATION_GRACE_MS = 500;    // Suppress blur/focus events for 500ms during navigation
 
 // Head pose thresholds
 const YAW_THRESHOLD_LOW = 0.32;
@@ -50,6 +52,9 @@ let warningCount = 0;
 let lastWarningTime = 0;
 let detectionVideo = null;
 let eyeDetectionInterval = null;
+
+// Navigation grace period state
+let navigationInProgress = false;
 
 // Mouse leave state
 let mouseLeaveTimer = null;
@@ -72,6 +77,20 @@ const DEBUG_LOG_INTERVAL = 6;
  */
 function canShowWarning() {
     return (Date.now() - lastWarningTime) >= WARNING_COOLDOWN;
+}
+
+// ========================
+// Navigation Grace Period
+// ========================
+
+/**
+ * Called by exam.js when question navigation occurs.
+ * Suppresses blur/focus events for a short grace period to prevent
+ * false warnings from DOM focus shifts during navigation.
+ */
+function onQuestionNavigating() {
+    navigationInProgress = true;
+    setTimeout(() => { navigationInProgress = false; }, NAVIGATION_GRACE_MS);
 }
 
 // ========================
@@ -102,6 +121,7 @@ async function initEyeDetection(videoElement) {
 
 function initTabVisibilityDetection() {
     document.addEventListener('visibilitychange', () => {
+        if (navigationInProgress) return;
         if (document.hidden) {
             console.log('[Proctoring] Tab switch detected (visibilitychange)');
             triggerEyeWarning('You switched tabs. Please stay focused on the exam.');
@@ -117,6 +137,7 @@ function initTabVisibilityDetection() {
 
 function initWindowBlurDetection() {
     window.addEventListener('blur', () => {
+        if (navigationInProgress) return;
         console.log('[Proctoring] Window blur detected');
         triggerEyeWarning('You left the exam window. Please stay focused on the exam.');
     });

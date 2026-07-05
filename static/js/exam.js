@@ -57,6 +57,11 @@ function saveCurrentQuestionTime() {
  * Handle when the per-question timer expires
  */
 function onQuestionTimeout() {
+    // Notify proctoring system before auto-advance to suppress false blur events
+    if (typeof onQuestionNavigating === 'function') {
+        onQuestionNavigating();
+    }
+
     if (currentQuestion < totalQuestions) {
         // Auto-advance to next question
         navigateQuestion(currentQuestion + 1);
@@ -161,6 +166,11 @@ function setupNavigation() {
 
 function navigateQuestion(index) {
     if (index < 1 || index > totalQuestions) return;
+
+    // Notify proctoring system that navigation is happening to suppress false blur events
+    if (typeof onQuestionNavigating === 'function') {
+        onQuestionNavigating();
+    }
 
     // Save current question's remaining time before navigating away
     saveCurrentQuestionTime();
