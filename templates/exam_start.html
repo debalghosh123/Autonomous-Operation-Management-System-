@@ -78,8 +78,31 @@
     <div class="exam-start-container">
         <div class="welcome-header">
             <h2><i class="fas fa-laptop-code"></i> Welcome, {{ candidate.name }}!</h2>
+            {% if cooldown_active %}
+            <p>Re-evaluation Cooldown Period Active</p>
+            {% else %}
             <p>You are about to start the Python Evaluation</p>
+            {% endif %}
         </div>
+
+        {% if cooldown_active %}
+        <div class="exam-rules" style="border-left: 4px solid #ff9944; padding-left: 1.5rem;">
+            <h3><i class="fas fa-clock"></i> Cooldown Period Active</h3>
+            <p style="font-size: 1.1rem; margin: 1rem 0;">{{ cooldown_message }}</p>
+            <p style="color: var(--accent-primary); font-weight: bold;">
+                <i class="fas fa-calendar-alt"></i> You can retake the exam after: {{ retry_date }}
+            </p>
+            <p style="margin-top: 1rem;">
+                Please use this time to review the topics and prepare for your next attempt.
+                We believe in your potential and look forward to seeing you again!
+            </p>
+        </div>
+        <div class="start-actions" style="margin-top: 2rem;">
+            <a href="/" class="btn btn-primary btn-lg">
+                <i class="fas fa-home"></i> Return Home
+            </a>
+        </div>
+        {% else %}
 
         <div class="exam-rules">
             <h3><i class="fas fa-clipboard-list"></i> Exam Instructions</h3>
@@ -117,11 +140,13 @@
                 <i class="fas fa-play"></i> Begin Exam
             </button>
         </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
+{% if not cooldown_active %}
 <script>
 (function() {
     const enableCameraBtn = document.getElementById('enable-camera-btn');
@@ -164,4 +189,5 @@
     });
 })();
 </script>
+{% endif %}
 {% endblock %}

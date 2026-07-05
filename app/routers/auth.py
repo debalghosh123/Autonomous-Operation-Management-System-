@@ -72,8 +72,16 @@ async def admin_login(
 ):
     """Authenticate admin."""
     if username == settings.ADMIN_USERNAME and password == settings.ADMIN_PASSWORD:
+        request.session["admin_authenticated"] = True
         return RedirectResponse(url="/admin/dashboard", status_code=303)
     return templates.TemplateResponse(
         "admin/login.html",
         {"request": request, "error": "Invalid credentials"},
     )
+
+
+@router.get("/admin/logout")
+async def admin_logout(request: Request):
+    """Logout admin and clear session."""
+    request.session.clear()
+    return RedirectResponse(url="/admin/login", status_code=303)

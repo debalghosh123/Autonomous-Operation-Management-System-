@@ -1,0 +1,29 @@
+{
+  "project_type": "Python FastAPI web application with Jinja2 templates and SQLite",
+  "language": "Python 3.11",
+  "build_system": "pip with requirements.txt, no Makefile",
+  "test_framework": "pytest with FastAPI TestClient in tests/conftest.py",
+  "build_command": "pip install -r requirements.txt",
+  "test_command": "cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/",
+  "verification_instructions": "Run pytest tests/ and confirm all tests pass. Optionally start app with python main.py and test endpoints manually.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "pip install -r requirements.txt && pip install itsdangerous",
+  "environment_constraints": "SQLite database at /tmp/evaluation.db. No Docker daemon needed for tests. itsdangerous must be added to requirements.txt for SessionMiddleware.",
+  "contribution_requirements": "Work on fix/eye-gaze-detection branch. All existing 27 tests must continue to pass.",
+  "key_patterns": "Routers in app/routers/ with APIRouter prefix. Services in app/services/. App factory in app/__init__.py using create_app(). Database via context manager get_db(). Config via dataclass Settings in app/config.py. Templates in templates/ directory.",
+  "relevant_files": [
+    "app/__init__.py",
+    "app/config.py",
+    "app/database.py",
+    "app/routers/auth.py",
+    "app/routers/admin.py",
+    "app/routers/exam.py",
+    "app/services/email_service.py",
+    "app/services/notification_service.py",
+    "app/utils/helpers.py",
+    "requirements.txt",
+    "tests/test_app.py",
+    "tests/conftest.py"
+  ],
+  "directory_structure": "app/ contains routers/, services/, utils/, config.py, database.py. templates/ has admin/ subdirectory. static/ has css/, js/, images/. tests/ has test_app.py, test_database.py, test_services.py."
+}
