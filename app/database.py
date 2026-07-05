@@ -114,9 +114,16 @@ def init_db():
             message TEXT NOT NULL,
             sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             status TEXT DEFAULT 'pending',
+            scheduled_at TIMESTAMP,
             FOREIGN KEY (candidate_id) REFERENCES candidates(id)
         );
     """)
+
+    # Ensure scheduled_at column exists for existing databases
+    try:
+        cursor.execute("ALTER TABLE notifications ADD COLUMN scheduled_at TIMESTAMP")
+    except Exception:
+        pass  # Column already exists
 
     # Seed questions if table is empty
     cursor.execute("SELECT COUNT(*) FROM questions")

@@ -5,7 +5,7 @@ Handles exam flow: start, questions, submit, results
 from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.database import get_db
 from app.config import settings
 from app.services.groq_service import generate_ai_feedback
@@ -26,6 +26,26 @@ async def start_exam(request: Request, candidate_id: int):
         ).fetchone()
         if not candidate:
             raise HTTPException(status_code=404, detail="Candidate not found")
+
+        # Check 14-day cooldown period
+        last_exam = db.execute(
+            "SELECT completed_at FROM exams WHERE candidate_id = ? AND completed_at IS NOT NULL ORDER BY completed_at DESC LIMIT 1",
+            (candidate_id,)
+        ).fetchone()
+
+        if last_exam and last_exam["completed_at"]:
+            completed_at = datetime.fromisoformat(last_exam["completed_at"])
+            cooldown_end = completed_at + timedelta(days=14)
+            now = datetime.now()
+            if now < cooldown_end:
+                retry_date = cooldown_end.strftime("%B %d, %Y")
+                return templates.TemplateResponse("exam_start.html", {
+                    "request": request,
+                    "candidate": dict(candidate),
+                    "cooldown_active": True,
+                    "retry_date": retry_date,
+                    "cooldown_message": f"You have already attempted the evaluation recently. You can retake the exam after {retry_date}.",
+                })
 
         # Create new exam
         cursor = db.execute(
@@ -203,6 +223,25 @@ async def submit_exam(request: Request, exam_id: int):
         )
     except Exception:
         pass
+
+    # Schedule 7-day follow-up notification for failed candidates
+    if not passed:
+        try:
+            follow_up_date = datetime.now() + timedelta(days=7)
+            with get_db() as db:
+                db.execute(
+                    """INSERT INTO notifications (candidate_id, type, message, status, scheduled_at)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (
+                        candidate["id"],
+                        "follow_up_7day",
+                        f"Follow-up with {candidate['name']} regarding next interview opportunity. Scheduled 7 days after exam attempt.",
+                        "scheduled",
+                        follow_up_date.isoformat(),
+                    ),
+                )
+        except Exception as e:
+            print(f"[Notification] Error scheduling follow-up: {e}")
 
     if candidate["phone"]:
         try:

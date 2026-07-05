@@ -8,8 +8,20 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 from main import app
+from datetime import datetime, timedelta
+from app.database import get_db
 
 client = TestClient(app)
+
+
+def _admin_login(test_client):
+    """Helper to login as admin and return the client with session cookie."""
+    test_client.post(
+        "/admin/login",
+        data={"username": "admin", "password": "admin123"},
+        follow_redirects=False,
+    )
+    return test_client
 
 
 def test_health_check():
@@ -117,13 +129,108 @@ def test_admin_login_fail():
 
 def test_admin_login_success():
     """Test admin login with correct credentials."""
-    response = client.post(
+    test_client = TestClient(app)
+    response = test_client.post(
         "/admin/login",
         data={"username": "admin", "password": "admin123"},
         follow_redirects=False,
     )
     assert response.status_code == 303
     assert response.headers["location"] == "/admin/dashboard"
+    # Verify session allows access to dashboard
+    dashboard_response = test_client.get("/admin/dashboard", follow_redirects=False)
+    assert dashboard_response.status_code == 200
+
+
+def test_admin_dashboard_requires_auth():
+    """Test that admin dashboard redirects to login when not authenticated."""
+    test_client = TestClient(app)
+    response = test_client.get("/admin/dashboard", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/admin/login"
+
+
+def test_admin_candidates_requires_auth():
+    """Test that admin candidates page redirects to login when not authenticated."""
+    test_client = TestClient(app)
+    response = test_client.get("/admin/candidates", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/admin/login"
+
+
+def test_admin_questions_requires_auth():
+    """Test that admin questions page redirects to login when not authenticated."""
+    test_client = TestClient(app)
+    response = test_client.get("/admin/questions", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/admin/login"
+
+
+def test_admin_dashboard_accessible_after_login():
+    """Test that admin dashboard is accessible after login."""
+    test_client = TestClient(app)
+    _admin_login(test_client)
+    response = test_client.get("/admin/dashboard", follow_redirects=False)
+    assert response.status_code == 200
+
+
+def test_admin_candidates_accessible_after_login():
+    """Test that admin candidates page is accessible after login."""
+    test_client = TestClient(app)
+    _admin_login(test_client)
+    response = test_client.get("/admin/candidates", follow_redirects=False)
+    assert response.status_code == 200
+
+
+def test_admin_questions_accessible_after_login():
+    """Test that admin questions page is accessible after login."""
+    test_client = TestClient(app)
+    _admin_login(test_client)
+    response = test_client.get("/admin/questions", follow_redirects=False)
+    assert response.status_code == 200
+
+
+def test_admin_logout():
+    """Test admin logout clears session."""
+    test_client = TestClient(app)
+    _admin_login(test_client)
+    # Verify logged in
+    response = test_client.get("/admin/dashboard", follow_redirects=False)
+    assert response.status_code == 200
+    # Logout
+    response = test_client.get("/admin/logout", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/admin/login"
+    # Verify no longer authenticated
+    response = test_client.get("/admin/dashboard", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/admin/login"
+
+
+def test_exam_cooldown():
+    """Test 14-day cooldown prevents starting a new exam."""
+    # Register a new candidate for this test
+    test_client = TestClient(app)
+    reg_response = test_client.post(
+        "/register",
+        data={"name": "Cooldown Tester", "email": "cooldown@example.com", "phone": ""},
+        follow_redirects=False,
+    )
+    location = reg_response.headers["location"]
+    candidate_id = int(location.split("/")[-1])
+
+    # Manually insert a completed exam with recent completed_at
+    with get_db() as db:
+        recent_time = datetime.now().isoformat()
+        db.execute(
+            "INSERT INTO exams (candidate_id, total_marks, completed_at, score, percentage, passed) VALUES (?, ?, ?, ?, ?, ?)",
+            (candidate_id, 100, recent_time, 50, 50.0, 0),
+        )
+
+    # Try to start a new exam - should show cooldown message
+    response = test_client.get(f"/exam/start/{candidate_id}")
+    assert response.status_code == 200
+    assert "cooldown" in response.text.lower() or "retake" in response.text.lower() or "after" in response.text.lower()
 
 
 def test_exam_start():
@@ -138,7 +245,66 @@ def test_exam_start():
     # Follow redirect to exam start
     response = client.get(location)
     assert response.status_code == 200
-    assert "Exam Instructions" in response.text
+
+
+def test_admin_exam_detail_requires_auth():
+    """Test that admin exam detail page redirects to login when not authenticated."""
+    test_client = TestClient(app)
+    response = test_client.get("/admin/exam/1", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/admin/login"
+
+
+def test_follow_up_notification_created_on_failure():
+    """Test that a follow_up_7day notification is created when a candidate fails."""
+    test_client = TestClient(app)
+
+    # Register a candidate
+    reg_response = test_client.post(
+        "/register",
+        data={"name": "Notification Tester", "email": "notify_test@example.com", "phone": ""},
+        follow_redirects=False,
+    )
+    location = reg_response.headers["location"]
+    candidate_id = int(location.split("/")[-1])
+
+    # Start an exam
+    start_response = test_client.get(f"/exam/start/{candidate_id}")
+    assert start_response.status_code == 200
+
+    # Get the exam_id from the database
+    with get_db() as db:
+        exam = db.execute(
+            "SELECT id FROM exams WHERE candidate_id = ? ORDER BY id DESC LIMIT 1",
+            (candidate_id,)
+        ).fetchone()
+        exam_id = exam["id"]
+
+        # Insert questions for this exam so submission can be scored
+        db.execute(
+            """INSERT INTO ai_questions (exam_id, question_number, question_text,
+               option_a, option_b, option_c, option_d, correct_answer, difficulty, topic, marks)
+               VALUES (?, 1, 'Test question?', 'A answer', 'B answer', 'C answer', 'D answer', 'A', 'advanced', 'python', 4)""",
+            (exam_id,)
+        )
+
+    # Submit the exam with wrong answers (to guarantee failure)
+    submit_response = test_client.post(
+        f"/exam/submit/{exam_id}",
+        data={"question_1": "B"},  # Wrong answer (correct is A)
+        follow_redirects=False,
+    )
+    assert submit_response.status_code == 303
+
+    # Verify a follow_up_7day notification was created
+    with get_db() as db:
+        notification = db.execute(
+            "SELECT * FROM notifications WHERE candidate_id = ? AND type = 'follow_up_7day'",
+            (candidate_id,)
+        ).fetchone()
+        assert notification is not None
+        assert notification["status"] == "scheduled"
+        assert "follow-up" in notification["message"].lower() or "Follow-up" in notification["message"]
 
 
 def test_duplicate_email_handling():

@@ -3,7 +3,7 @@ Career Lab Consulting - Admin Router
 Admin dashboard and management panel
 """
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.database import get_db
 from app.config import settings
@@ -12,9 +12,20 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 templates = Jinja2Templates(directory="templates")
 
 
+def require_admin(request: Request):
+    """Check if admin is authenticated. Returns RedirectResponse if not."""
+    if not request.session.get("admin_authenticated"):
+        return RedirectResponse(url="/admin/login", status_code=303)
+    return None
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
 async def admin_dashboard(request: Request):
     """Admin dashboard with statistics."""
+    auth_redirect = require_admin(request)
+    if auth_redirect:
+        return auth_redirect
+
     with get_db() as db:
         # Get statistics
         total_candidates = db.execute("SELECT COUNT(*) as count FROM candidates").fetchone()["count"]
@@ -51,6 +62,10 @@ async def admin_dashboard(request: Request):
 @router.get("/candidates", response_class=HTMLResponse)
 async def list_candidates(request: Request):
     """List all candidates."""
+    auth_redirect = require_admin(request)
+    if auth_redirect:
+        return auth_redirect
+
     with get_db() as db:
         candidates = db.execute("""
             SELECT c.*, 
@@ -69,6 +84,10 @@ async def list_candidates(request: Request):
 @router.get("/questions", response_class=HTMLResponse)
 async def manage_questions(request: Request, page: int = 1, topic: str = "", search: str = ""):
     """Question management page with pagination, topic filter, and search."""
+    auth_redirect = require_admin(request)
+    if auth_redirect:
+        return auth_redirect
+
     per_page = 50
     offset = (page - 1) * per_page
 
@@ -121,6 +140,10 @@ async def manage_questions(request: Request, page: int = 1, topic: str = "", sea
 @router.get("/exam/{exam_id}", response_class=HTMLResponse)
 async def view_exam_detail(request: Request, exam_id: int):
     """View detailed exam results."""
+    auth_redirect = require_admin(request)
+    if auth_redirect:
+        return auth_redirect
+
     with get_db() as db:
         exam = db.execute("SELECT * FROM exams WHERE id = ?", (exam_id,)).fetchone()
         if not exam:

@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Add admin session-based authentication to protect all admin routes, implement 14-day exam cooldown, and send distinct qualified/not-qualified emails with 7-day follow-up scheduling for failed candidates.",
+  "status": "completed",
+  "steps": [
+    "Add 'itsdangerous' to requirements.txt",
+    "In app/__init__.py, add Starlette SessionMiddleware using settings.SECRET_KEY as the secret",
+    "In app/routers/auth.py, modify the POST /admin/login handler to set request.session['admin_authenticated'] = True on successful login. Add a GET /admin/logout route that clears the session and redirects to /admin/login.",
+    "Create a dependency function (or inline check) in app/routers/admin.py that checks request.session.get('admin_authenticated'). If not authenticated, redirect to /admin/login. Apply this to all admin routes: /admin/dashboard, /admin/candidates, /admin/questions, /admin/exam/{exam_id}.",
+    "In app/routers/exam.py, in the start_exam route (GET /exam/start/{candidate_id}), before creating a new exam, query for the most recent completed exam for this candidate: SELECT completed_at FROM exams WHERE candidate_id = ? AND completed_at IS NOT NULL ORDER BY completed_at DESC LIMIT 1. If that date is within the last 14 days, render a 'cooldown' template (or the exam_start template with an error message) showing the date they can next attempt (completed_at + 14 days). Do NOT create a new exam row if cooldown is active.",
+    "In app/services/email_service.py, replace the single send_result_email function with two distinct email paths based on the 'passed' parameter: (a) If passed=True, send a beautiful, warm, celebratory welcome/congratulation email with charming language welcoming them to the next stage at Career Lab Consulting. (b) If passed=False, send an appropriate rejection email with encouragement, noting that a follow-up will be carried out after 7 days regarding the next interview opportunity.",
+    "In app/routers/exam.py submit_exam, after the email is sent for a failed candidate, insert a row into the notifications table with type='follow_up_7day', status='scheduled', and a message indicating follow-up is due 7 days from now. Include a scheduled_at field if the column exists, or encode the follow-up date in the message.",
+    "Add a 'scheduled_at' column to the notifications table in app/database.py (CREATE TABLE IF NOT EXISTS so it is safe for existing DBs -- use ALTER TABLE approach or add column in schema).",
+    "Update tests/test_app.py: (a) The test_admin_login_success test should now verify that after login, accessing /admin/dashboard returns 200 (session cookie is maintained by TestClient). (b) Add a test that accessing /admin/dashboard WITHOUT login redirects to /admin/login. (c) Add a test for the cooldown: register a candidate, complete an exam for them, then try to start another exam and verify they get a cooldown message. (d) Ensure existing tests still pass -- the admin dashboard test may need the client to login first."
+  ],
+  "acceptance_criteria": [
+    "All admin routes (/admin/dashboard, /admin/candidates, /admin/questions, /admin/exam/{id}) redirect to /admin/login when accessed without a valid session",
+    "After successful login via POST /admin/login, the session cookie allows access to admin routes",
+    "A candidate who completed an exam within the last 14 days cannot start a new exam and sees a message with the eligible retry date",
+    "When a candidate passes, the email sent is a warm, celebratory welcome message",
+    "When a candidate fails, the email sent mentions encouragement and states that follow-up will happen after 7 days",
+    "A notification record with type 'follow_up_7day' is created in the notifications table for failed candidates",
+    "All existing tests continue to pass (27 tests) plus new tests are added",
+    "Running python -m pytest tests/ shows all tests passing"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -v"
+  ],
+  "blocked_reason": null,
+  "findings": "All 35 tests pass (22 in test_app.py including 9 new tests, 13 in other test files). itsdangerous was already available in environment. SessionMiddleware works correctly with TestClient cookie persistence. The exam_start.html template was updated with conditional blocks to handle both cooldown and normal exam start scenarios. The notifications table schema change uses both CREATE TABLE IF NOT EXISTS with the new column and a fallback ALTER TABLE for existing databases."
+}
