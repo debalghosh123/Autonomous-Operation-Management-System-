@@ -1,7 +1,14 @@
 {
   "task_id": "task-exam-security-notifications",
   "task_description": "Implement 14-day exam cooldown, distinct qualified/not-qualified emails with 7-day follow-up for failed candidates, and session-based admin route protection for admin panel, question bank, and dashboard.",
-  "status": "in_progress",
-  "feature_order": ["FEAT-001"],
-  "blocked_reason": null
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "All 35 tests pass (27 original + 8 new). New tests cover: admin auth protection for dashboard/candidates/questions, login-then-access flow, logout session clearing, and 14-day cooldown blocking. Tests use separate TestClient instances to isolate session state."
+  }
 }

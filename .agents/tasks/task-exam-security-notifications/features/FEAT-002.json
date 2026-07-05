@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "fix",
   "description": "Address code review findings: log notification scheduling errors, add missing tests for /admin/exam/{exam_id} auth and notification insertion, add startup warning for default SECRET_KEY.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "In app/routers/exam.py, change the 'except Exception: pass' around the follow-up notification insert to log the error instead of silently swallowing it.",
     "In tests/test_app.py, add a test that accessing /admin/exam/1 without login redirects to /admin/login.",
@@ -19,5 +19,5 @@
     "cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -v"
   ],
   "blocked_reason": null,
-  "findings": null
+  "findings": "All 37 tests pass (24 in test_app.py, 13 in other test files). The notification test creates a candidate, starts an exam, inserts a single question, submits a wrong answer, and verifies the follow_up_7day row is present. The auth test for /admin/exam/1 works because require_admin redirects before attempting to fetch the non-existent exam from the DB."
 }
