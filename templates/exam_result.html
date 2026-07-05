@@ -70,6 +70,26 @@
 .act-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #e2e8f0; }
 .act-card p { font-size: 13px; color: #64748b; line-height: 1.5; }
 
+/* Study Plan */
+.study-plan-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.study-plan-card { background: var(--card-bg, #1a2332); border: 1px solid #2a3a4a; border-radius: 14px; padding: 20px; transition: all 0.3s; }
+.study-plan-card:hover { border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 6px 24px rgba(59,130,246,0.08); }
+.study-plan-card.study-plan-success { grid-column: 1 / -1; text-align: center; border-color: rgba(16,185,129,0.3); }
+.study-plan-card.study-plan-success i { font-size: 36px; color: #10b981; margin-bottom: 12px; }
+.study-plan-card.study-plan-success h4 { color: #10b981; font-size: 16px; margin-bottom: 8px; }
+.study-plan-card.study-plan-success p { color: #94a3b8; font-size: 14px; }
+.study-plan-header { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.study-topic-icon { width: 42px; height: 42px; border-radius: 10px; background: rgba(59,130,246,0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.study-topic-icon i { font-size: 18px; color: #3b82f6; }
+.study-topic-info { flex: 1; min-width: 0; }
+.study-topic-info h4 { font-size: 14px; font-weight: 700; color: #e2e8f0; margin-bottom: 6px; }
+.study-score-bar { height: 6px; background: #0f172a; border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+.study-score-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+.study-score-label { font-size: 11px; color: #64748b; font-weight: 500; }
+.study-plan-content { padding-top: 10px; border-top: 1px solid rgba(42,58,74,0.5); }
+.study-plan-content p { font-size: 13px; color: #94a3b8; line-height: 1.5; display: flex; align-items: flex-start; gap: 8px; }
+.study-plan-content p i { color: #f59e0b; margin-top: 2px; flex-shrink: 0; }
+
 /* Answer Review */
 .review-section { background: var(--card-bg, #1a2332); border: 1px solid #2a3a4a; border-radius: 20px; padding: 28px; margin-bottom: 28px; }
 .review-section h3 { font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
@@ -94,6 +114,7 @@
 @media (max-width: 768px) {
     .score-section { gap: 20px; }
     .actions-grid { grid-template-columns: 1fr; }
+    .study-plan-grid { grid-template-columns: 1fr; }
     .answer-row { flex-wrap: wrap; gap: 6px; }
     .result-hero h1 { font-size: 24px; }
 }
@@ -181,25 +202,86 @@
         <p class="meter-gap">Gap to close: <strong>{{ "%.1f"|format(90 - exam.percentage) }}%</strong> more to reach production-ready</p>
     </div>
 
-    <!-- Action Items -->
+    <!-- Topicwise Study Plan -->
     <div class="actions-section">
-        <h3><i class="fas fa-bolt" style="color: #f59e0b;"></i> Immediate Next Steps</h3>
-        <div class="actions-grid">
-            <div class="act-card">
-                <i class="fas fa-crosshairs"></i>
-                <h4>Fix Critical Gaps</h4>
-                <p>The AI analysis above identifies your exact loopholes. Focus on topics where you scored 0 — those would crash production systems.</p>
+        <h3><i class="fas fa-bolt" style="color: #f59e0b;"></i> Your Personalized Study Plan</h3>
+        <p style="color: #94a3b8; margin-bottom: 20px; font-size: 14px;">Focus on these topics where you scored below 75%. Master them before your next attempt.</p>
+        <div class="study-plan-grid">
+            {% set topic_study_map = {
+                'python_setup': 'Python environment, virtual environments, pip',
+                'variables_datatypes': 'Data types, type casting, operators',
+                'strings': 'String methods, f-strings, slicing, formatting for AI prompts',
+                'lists_tuples_sets': 'List comprehensions, CRUD, choosing right data structure',
+                'dictionaries_json': 'JSON handling, nested dicts, json module',
+                'control_flow': 'Conditional logic, short-circuit evaluation',
+                'loops': 'for/while, range, enumerate, zip, iterating API responses',
+                'functions_scope': 'Functions, *args/**kwargs, lambda, closures',
+                'modules_packages': 'Module system, imports, packages, requirements.txt',
+                'file_io_errors': 'File I/O, with statement, exception handling',
+                'oop_basics': 'Classes, __init__, attributes, methods, Agent design',
+                'oop_advanced': 'Inheritance, polymorphism, dunder methods, design patterns',
+                'apis_requests': 'HTTP methods, requests library, API auth, error handling',
+                'web_scraping': 'BeautifulSoup, CSS selectors, ethical scraping',
+                'pandas': 'DataFrame ops, filtering, groupby, data export',
+                'regex': 'Regular expressions, pattern matching, text extraction',
+                'async_programming': 'asyncio, async/await, aiohttp, concurrent calls',
+                'ai_agent_patterns': 'ReAct framework, tool use, memory, LangChain, Pydantic'
+            } %}
+            {% set topic_icons = {
+                'python_setup': 'fa-cogs',
+                'variables_datatypes': 'fa-superscript',
+                'strings': 'fa-font',
+                'lists_tuples_sets': 'fa-list',
+                'dictionaries_json': 'fa-code',
+                'control_flow': 'fa-code-branch',
+                'loops': 'fa-sync-alt',
+                'functions_scope': 'fa-cube',
+                'modules_packages': 'fa-boxes-stacked',
+                'file_io_errors': 'fa-file-code',
+                'oop_basics': 'fa-cubes',
+                'oop_advanced': 'fa-layer-group',
+                'apis_requests': 'fa-plug',
+                'web_scraping': 'fa-spider',
+                'pandas': 'fa-table',
+                'regex': 'fa-search',
+                'async_programming': 'fa-bolt',
+                'ai_agent_patterns': 'fa-robot'
+            } %}
+            {% set weak_topics_found = [] %}
+            {% for topic, perf in topic_performance.items() %}
+                {% if perf.percentage < 75 %}
+                    {% if weak_topics_found.append(topic) %}{% endif %}
+                {% endif %}
+            {% endfor %}
+            {% if weak_topics_found | length == 0 %}
+            <div class="study-plan-card study-plan-success">
+                <i class="fas fa-check-circle"></i>
+                <h4>Great Performance!</h4>
+                <p>You scored above 75% in all topics. Keep practicing to reach the 90% qualification threshold.</p>
             </div>
-            <div class="act-card">
-                <i class="fas fa-laptop-code"></i>
-                <h4>Build Real Projects</h4>
-                <p>Theory won't save you. Build 2-3 projects using your weak areas. Push to GitHub. Production experience matters.</p>
-            </div>
-            <div class="act-card">
-                <i class="fas fa-calendar-check"></i>
-                <h4>Retry in 14 Days</h4>
-                <p>Follow the AI study plan, practice daily for 2 weeks, then retake. The questions are AI-generated — unique every time.</p>
-            </div>
+            {% else %}
+            {% for topic, perf in topic_performance.items() %}
+                {% if perf.percentage < 75 %}
+                <div class="study-plan-card">
+                    <div class="study-plan-header">
+                        <div class="study-topic-icon">
+                            <i class="fas {{ topic_icons.get(topic, 'fa-book') }}"></i>
+                        </div>
+                        <div class="study-topic-info">
+                            <h4>{{ topic | replace('_', ' ') | title }}</h4>
+                            <div class="study-score-bar">
+                                <div class="study-score-fill" style="width: {{ perf.percentage }}%; background: {% if perf.percentage < 25 %}#ef4444{% elif perf.percentage < 50 %}#f59e0b{% else %}#3b82f6{% endif %};"></div>
+                            </div>
+                            <span class="study-score-label">{{ perf.correct }}/{{ perf.total }} correct ({{ perf.percentage }}%)</span>
+                        </div>
+                    </div>
+                    <div class="study-plan-content">
+                        <p><i class="fas fa-book-open"></i> {{ topic_study_map.get(topic, 'Review this topic thoroughly') }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+            {% endif %}
         </div>
     </div>
     {% endif %}

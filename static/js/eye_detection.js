@@ -12,9 +12,11 @@ let faceApiLoaded = false;
 let landmarksLoaded = false;
 let detectionVideo = null;
 let warningShownForCurrentDistraction = false; // Prevents repeated warnings for a single distraction event
-const GAZE_AWAY_THRESHOLD = 2000; // 2 seconds of looking away before warning (brief threshold to avoid flickers)
+let gazeAtScreenFrames = 0; // Counter for consecutive frames where gaze is at screen
+const GAZE_AWAY_THRESHOLD = 2000; // 2 seconds of looking away before warning
 const MAX_WARNINGS = 5;
 const DETECTION_INTERVAL = 500; // Check every 500ms for smoother detection
+const GAZE_RETURN_FRAMES_REQUIRED = 3; // Require 3+ consecutive "looking at screen" frames (1.5s at 500ms interval) before resetting
 
 // Gaze thresholds - how far off-center the gaze must be to count as "looking away"
 // These are ratios (0 = looking fully left/up, 0.5 = center, 1 = fully right/down)
@@ -68,15 +70,21 @@ async function initEyeDetection(videoElement) {
 /**
  * Start the gaze detection loop
  *
- * State machine:
- *   LOOKING_AT_SCREEN -> gaze leaves screen -> start timer (GAZE_AWAY_DETECTED)
+ * State machine with hysteresis:
+ *   LOOKING_AT_SCREEN -> gaze leaves screen -> start timer (GAZE_AWAY_DETECTED), reset gazeAtScreenFrames
  *   GAZE_AWAY_DETECTED -> threshold elapsed -> trigger ONE warning (WARNING_SHOWN)
  *   WARNING_SHOWN -> still looking away -> DO NOTHING (no repeated warnings)
- *   WARNING_SHOWN / GAZE_AWAY_DETECTED -> gaze returns -> reset to LOOKING_AT_SCREEN
+ *   WARNING_SHOWN / GAZE_AWAY_DETECTED -> gaze returns for 3+ consecutive frames -> reset to LOOKING_AT_SCREEN
+ *
+ * The hysteresis (gazeAtScreenFrames counter) prevents a single noisy frame from
+ * resetting the distraction state. The candidate must sustain gaze at screen for
+ * at least 1.5 seconds (3 frames at 500ms) before the system considers the
+ * distraction event over and is ready to detect the next one.
  */
 function startDetection() {
     gazeAwayStartTime = null;
     warningShownForCurrentDistraction = false;
+    gazeAtScreenFrames = 0;
     eyeDetectionInterval = setInterval(async () => {
         if (!detectionVideo || detectionVideo.paused || detectionVideo.ended) return;
 
@@ -84,6 +92,9 @@ function startDetection() {
 
         if (gazeResult.lookingAway) {
             // Eyes are looking away from the screen
+            // Reset the at-screen counter since gaze is away
+            gazeAtScreenFrames = 0;
+
             if (gazeAwayStartTime === null) {
                 gazeAwayStartTime = Date.now();
             } else if (!warningShownForCurrentDistraction) {
@@ -96,9 +107,17 @@ function startDetection() {
             }
             // If warningShownForCurrentDistraction is true and still looking away, do nothing
         } else {
-            // Eyes are back on screen - reset state for the next distraction event
-            gazeAwayStartTime = null;
-            warningShownForCurrentDistraction = false;
+            // Eyes appear to be on screen - increment the at-screen counter
+            gazeAtScreenFrames++;
+
+            // Only reset distraction state after sustained looking-at-screen
+            // This prevents a single noisy frame from resetting the state
+            if (gazeAtScreenFrames >= GAZE_RETURN_FRAMES_REQUIRED) {
+                gazeAwayStartTime = null;
+                warningShownForCurrentDistraction = false;
+                // Keep gazeAtScreenFrames counting (no need to reset, it just keeps going)
+            }
+            // Do NOT call hideEyeWarning() here - let the 5-second auto-hide handle it
         }
     }, DETECTION_INTERVAL);
 }
