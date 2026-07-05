@@ -1,0 +1,26 @@
+{
+  "id": "FEAT-006",
+  "type": "feat",
+  "description": "Expand question bank from 1,000 to 10,000 questions. Keep existing 1000, add 9000 more. Balanced distribution: 2500 A, 2500 B, 2500 C, 2500 D. Approximately equal across 18 topics (~555 per topic). Split across multiple files due to size.",
+  "status": "completed",
+  "steps": [
+    "Create question bank part files (question_bank_2.py through question_bank_10.py) with 1000 questions each",
+    "Create question_bank_all.py to import and combine all into QUESTION_BANK with 10000 total questions",
+    "Update module docstring to say Part 1 of 10",
+    "Verify balanced answer distribution (2500 each A/B/C/D) and topic distribution (~555 per topic)",
+    "Run tests to verify everything still works"
+  ],
+  "acceptance_criteria": [
+    "QUESTION_BANK contains exactly 10000 questions",
+    "Answer distribution is exactly 2500 A, 2500 B, 2500 C, 2500 D",
+    "Topic distribution is approximately 555 per topic (18 topics)",
+    "All questions are unique and curriculum-aligned",
+    "Existing tests pass",
+    "database.py still imports from QUESTION_BANK successfully"
+  ],
+  "verification": [
+    "Run: python -c \"from app.question_bank_all import QUESTION_BANK; from collections import Counter; print(len(QUESTION_BANK)); c = Counter(q['correct_answer'] for q in QUESTION_BANK); print(c); assert len(QUESTION_BANK) == 10000; assert all(v == 2500 for v in c.values())\"",
+    "Run: python -m pytest tests/ -v"
+  ],
+  "findings": "Successfully generated 9000 new questions using parametric templates across all 18 topics. Used a multi-file generator approach (gen_impl.py through gen_impl9.py) that chains via exec(). Each topic has base template questions plus parametric variants to reach the needed count. Answer balancing is done per-file using rotation (swapping option positions). Final distribution: 2500 each of A/B/C/D. Topic distribution ranges 550-560 per topic. database.py now imports from question_bank_all.py. Test updated to expect 10000."
+}
