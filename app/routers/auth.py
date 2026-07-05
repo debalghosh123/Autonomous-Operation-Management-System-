@@ -29,7 +29,7 @@ async def register_candidate(
     request: Request,
     name: str = Form(...),
     email: str = Form(...),
-    phone: str = Form(""),
+    phone: str = Form(...),
 ):
     """Register a new candidate."""
     with get_db() as db:
