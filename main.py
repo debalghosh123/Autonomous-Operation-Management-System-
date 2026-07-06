@@ -15,7 +15,7 @@ print("Career Lab Consulting - Python Evaluation System")
 print("=" * 50)
 print(f"GROQ_API_KEY loaded: {'YES (' + settings.GROQ_API_KEY[:10] + '...)' if settings.GROQ_API_KEY else 'NO - AI QUESTIONS WILL NOT WORK!'}")
 print(f"GROQ_MODEL: {settings.GROQ_MODEL}")
-print(f"SMTP configured: {'YES (' + settings.SMTP_USER + ')' if settings.SMTP_USER else 'NO - EMAILS WILL NOT SEND!'}")
+print(f"Resend API: {'YES (key configured)' if settings.RESEND_API_KEY else 'NO - RESEND_API_KEY not set, emails will not send!'}")
 print(f"PORT: {os.getenv('PORT', '8000')}")
 if settings.SECRET_KEY == "career-lab-secret-key-change-in-production":
     print("WARNING: Using default SECRET_KEY - set SECRET_KEY env var in production!")

@@ -1,11 +1,11 @@
 """
 Career Lab Consulting - Email Service
-Send exam results and notifications via email
+Send exam results and notifications via Resend API
 """
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import httpx
 from app.config import settings
+
+RESEND_API_URL = "https://api.resend.com/emails"
 
 
 def _build_qualified_email(candidate_name: str, score: int, total_marks: int, percentage: float) -> str:
@@ -118,40 +118,6 @@ def _build_not_qualified_email(candidate_name: str, score: int, total_marks: int
     """
 
 
-async def send_result_email(to_email: str, candidate_name: str, score: int,
-                             total_marks: int, percentage: float, passed: bool) -> bool:
-    """Send exam result notification via email."""
-    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        status = "QUALIFIED" if passed else "NOT QUALIFIED"
-        print(f"[Email] Would send to {to_email}: Score {score}/{total_marks} ({percentage:.1f}%) - {status}")
-        return False
-
-    if passed:
-        subject = "Congratulations! You've Qualified - Career Lab Consulting"
-        html_body = _build_qualified_email(candidate_name, score, total_marks, percentage)
-    else:
-        subject = "Python Evaluation Results - Career Lab Consulting"
-        html_body = _build_not_qualified_email(candidate_name, score, total_marks, percentage)
-
-    try:
-        print(f"[Email] Attempting to send to {to_email} via {settings.SMTP_HOST}:{settings.SMTP_PORT} as {settings.SMTP_USER}")
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = settings.FROM_EMAIL
-        msg["To"] = to_email
-        msg.attach(MIMEText(html_body, "html"))
-
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            server.starttls()
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-
-        return True
-    except Exception as e:
-        print(f"[Email] SMTP Error sending to {to_email}: {type(e).__name__}: {e}")
-        return False
-
-
 def _build_followup_email(candidate_name: str) -> str:
     """Build an encouraging 7-day follow-up email reminding candidates they can retake the exam."""
     return f"""
@@ -202,29 +168,81 @@ def _build_followup_email(candidate_name: str) -> str:
     """
 
 
+async def send_result_email(to_email: str, candidate_name: str, score: int,
+                             total_marks: int, percentage: float, passed: bool) -> bool:
+    """Send exam result notification via Resend API."""
+    if not settings.RESEND_API_KEY:
+        status = "QUALIFIED" if passed else "NOT QUALIFIED"
+        print(f"[Email] RESEND_API_KEY not configured. Would send to {to_email}: Score {score}/{total_marks} ({percentage:.1f}%) - {status}")
+        return False
+
+    if passed:
+        subject = "Congratulations! You've Qualified - Career Lab Consulting"
+        html_body = _build_qualified_email(candidate_name, score, total_marks, percentage)
+    else:
+        subject = "Python Evaluation Results - Career Lab Consulting"
+        html_body = _build_not_qualified_email(candidate_name, score, total_marks, percentage)
+
+    try:
+        print(f"[Email] Sending to {to_email} via Resend API from {settings.FROM_EMAIL}")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                RESEND_API_URL,
+                headers={
+                    "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": settings.FROM_EMAIL,
+                    "to": [to_email],
+                    "subject": subject,
+                    "html": html_body,
+                },
+            )
+
+        if response.status_code == 200:
+            print(f"[Email] Successfully sent to {to_email}")
+            return True
+        else:
+            print(f"[Email] Resend API error ({response.status_code}): {response.text}")
+            return False
+    except Exception as e:
+        print(f"[Email] Error sending to {to_email}: {type(e).__name__}: {e}")
+        return False
+
+
 async def send_followup_email(to_email: str, candidate_name: str) -> bool:
-    """Send 7-day follow-up email encouraging the candidate to retake the exam."""
-    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        print(f"[Email] Would send follow-up to {to_email}: Encouraging {candidate_name} to retake exam")
+    """Send 7-day follow-up email encouraging the candidate to retake the exam via Resend API."""
+    if not settings.RESEND_API_KEY:
+        print(f"[Email] RESEND_API_KEY not configured. Would send follow-up to {to_email}: Encouraging {candidate_name} to retake exam")
         return False
 
     subject = "We're Still Rooting For You! - Career Lab Consulting"
     html_body = _build_followup_email(candidate_name)
 
     try:
-        print(f"[Email] Attempting to send follow-up to {to_email} via {settings.SMTP_HOST}:{settings.SMTP_PORT} as {settings.SMTP_USER}")
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = settings.FROM_EMAIL
-        msg["To"] = to_email
-        msg.attach(MIMEText(html_body, "html"))
+        print(f"[Email] Sending follow-up to {to_email} via Resend API from {settings.FROM_EMAIL}")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                RESEND_API_URL,
+                headers={
+                    "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": settings.FROM_EMAIL,
+                    "to": [to_email],
+                    "subject": subject,
+                    "html": html_body,
+                },
+            )
 
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            server.starttls()
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-
-        return True
+        if response.status_code == 200:
+            print(f"[Email] Follow-up successfully sent to {to_email}")
+            return True
+        else:
+            print(f"[Email] Resend API error ({response.status_code}): {response.text}")
+            return False
     except Exception as e:
-        print(f"[Email] SMTP Error sending follow-up to {to_email}: {type(e).__name__}: {e}")
+        print(f"[Email] Error sending follow-up to {to_email}: {type(e).__name__}: {e}")
         return False
