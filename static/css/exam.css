@@ -502,6 +502,119 @@
     letter-spacing: 0.3px;
 }
 
+/* Voice Active Indicator (in exam header) */
+.voice-active-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.3rem 0.7rem;
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    border-radius: 20px;
+    color: #10b981;
+    font-size: 0.85rem;
+    font-weight: 600;
+    position: relative;
+}
+
+.voice-active-indicator::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: voice-indicator-pulse 1.5s ease-in-out infinite;
+}
+
+.voice-active-indicator.voice-indicator-listening::before {
+    background: #10b981;
+    animation: voice-indicator-pulse 1.5s ease-in-out infinite;
+}
+
+.voice-active-indicator.voice-indicator-error::before {
+    background: #ff4444;
+    animation: voice-indicator-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes voice-indicator-pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scale(1.4);
+        box-shadow: 0 0 8px 2px rgba(16, 185, 129, 0.3);
+    }
+}
+
+/* Voice Overlay Enhancements */
+.voice-listening-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 1rem 0;
+}
+
+.voice-pulse-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: voice-indicator-pulse 1.5s ease-in-out infinite;
+}
+
+.voice-details {
+    margin: 1rem 0;
+    text-align: left;
+    background: var(--bg-secondary, rgba(0,0,0,0.2));
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+}
+
+.voice-detail-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #888);
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.voice-detail-value {
+    font-size: 0.95rem;
+    color: var(--text-primary, #fff);
+    margin: 0 0 0.6rem 0;
+    font-weight: 500;
+}
+
+.voice-detail-value:last-child {
+    margin-bottom: 0;
+}
+
+.voice-commands-hint {
+    margin: 1rem 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary, #aaa);
+    padding: 0.5rem;
+    border-top: 1px solid var(--border-color, rgba(255,255,255,0.1));
+}
+
+.voice-commands-hint p {
+    margin: 0;
+}
+
+.voice-heard {
+    color: var(--accent-primary, #00d4ff);
+    font-style: italic;
+}
+
+.voice-action {
+    color: #10b981;
+    font-weight: 500;
+}
+
 /* Voice Overlay */
 .voice-overlay {
     position: fixed;
