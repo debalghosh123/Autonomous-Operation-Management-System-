@@ -10,10 +10,49 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
 from app.database import get_db
 from app.config import settings
-from app.services.groq_service import generate_ai_feedback, _generate_fallback_feedback
+from app.services.groq_service import _generate_fallback_feedback
 from app.services.email_service import send_result_email
 from app.services.whatsapp_service import send_whatsapp_notification
 from app.utils.helpers import calculate_percentage, is_passed
+
+
+async def _send_email_safe(email, name, score, total, percentage, passed):
+    """Fire-and-forget email sender that never raises."""
+    try:
+        result = await send_result_email(email, name, score, total, percentage, passed)
+        print(f"[Email] {'Sent' if result else 'Failed'} to {email}")
+    except Exception as e:
+        print(f"[Email] Error: {e}")
+
+
+async def _send_whatsapp_safe(phone, name, score, total, percentage, passed):
+    """Fire-and-forget WhatsApp sender that never raises."""
+    try:
+        await send_whatsapp_notification(phone, name, score, total, percentage, passed)
+        print(f"[WhatsApp] Sent to {phone}")
+    except Exception as e:
+        print(f"[WhatsApp] Error: {e}")
+
+
+async def _schedule_followup_safe(candidate_id, candidate_name):
+    """Fire-and-forget follow-up notification scheduler that never raises."""
+    try:
+        follow_up_date = datetime.now() + timedelta(days=7)
+        with get_db() as db:
+            db.execute(
+                """INSERT INTO notifications (candidate_id, type, message, status, scheduled_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (
+                    candidate_id,
+                    "follow_up_7day",
+                    f"Follow-up with {candidate_name} regarding next interview opportunity. Scheduled 7 days after exam attempt.",
+                    "scheduled",
+                    follow_up_date.isoformat(),
+                ),
+            )
+        print(f"[Notification] Follow-up scheduled for {candidate_name}")
+    except Exception as e:
+        print(f"[Notification] Error scheduling follow-up: {e}")
 
 router = APIRouter(prefix="/exam", tags=["Exam"])
 _templates_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "templates")
@@ -202,15 +241,8 @@ async def submit_exam(request: Request, exam_id: int):
         percentage = calculate_percentage(score, settings.TOTAL_MARKS)
         passed = is_passed(percentage, settings.PASSING_PERCENTAGE)
 
-        # Generate AI feedback with timeout to avoid slow responses
-        try:
-            ai_feedback = await asyncio.wait_for(
-                generate_ai_feedback(score, settings.TOTAL_MARKS, percentage, topic_performance),
-                timeout=5.0
-            )
-        except (asyncio.TimeoutError, Exception) as e:
-            print(f"[AI Feedback] Timeout or error generating feedback: {type(e).__name__}: {e}")
-            ai_feedback = _generate_fallback_feedback(score, settings.TOTAL_MARKS, percentage, topic_performance)
+        # Use instant fallback feedback (skip Groq AI for speed)
+        ai_feedback = _generate_fallback_feedback(score, settings.TOTAL_MARKS, percentage, topic_performance)
 
         # Update exam record
         db.execute(
@@ -225,46 +257,20 @@ async def submit_exam(request: Request, exam_id: int):
             ("exam_completed", f"Candidate {candidate['name']} scored {score}/{settings.TOTAL_MARKS} ({percentage}%)"),
         )
 
-    # Send notifications (non-blocking)
-    try:
-        email_sent = await send_result_email(
-            candidate["email"], candidate["name"],
-            score, settings.TOTAL_MARKS, percentage, passed
-        )
-        if email_sent:
-            print(f"[Email] Successfully sent result email to {candidate['email']}")
-        else:
-            print(f"[Email] Failed to send email to {candidate['email']} - check SMTP credentials")
-    except Exception as e:
-        print(f"[Email] ERROR sending to {candidate['email']}: {type(e).__name__}: {e}")
+    # Fire-and-forget notifications (non-blocking - don't delay redirect)
+    asyncio.ensure_future(_send_email_safe(
+        candidate["email"], candidate["name"],
+        score, settings.TOTAL_MARKS, percentage, passed
+    ))
 
-    # Schedule 7-day follow-up notification for failed candidates
     if not passed:
-        try:
-            follow_up_date = datetime.now() + timedelta(days=7)
-            with get_db() as db:
-                db.execute(
-                    """INSERT INTO notifications (candidate_id, type, message, status, scheduled_at)
-                       VALUES (?, ?, ?, ?, ?)""",
-                    (
-                        candidate["id"],
-                        "follow_up_7day",
-                        f"Follow-up with {candidate['name']} regarding next interview opportunity. Scheduled 7 days after exam attempt.",
-                        "scheduled",
-                        follow_up_date.isoformat(),
-                    ),
-                )
-        except Exception as e:
-            print(f"[Notification] Error scheduling follow-up: {e}")
+        asyncio.ensure_future(_schedule_followup_safe(candidate["id"], candidate["name"]))
 
     if candidate["phone"]:
-        try:
-            await send_whatsapp_notification(
-                candidate["phone"], candidate["name"],
-                score, settings.TOTAL_MARKS, percentage, passed
-            )
-        except Exception:
-            pass
+        asyncio.ensure_future(_send_whatsapp_safe(
+            candidate["phone"], candidate["name"],
+            score, settings.TOTAL_MARKS, percentage, passed
+        ))
 
     return RedirectResponse(url=f"/exam/result/{exam_id}", status_code=303)
 

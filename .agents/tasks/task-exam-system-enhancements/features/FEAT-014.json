@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-014",
+  "type": "fix",
+  "description": "Skip Groq AI entirely for instant results, make email/WhatsApp/notifications fire-and-forget non-blocking so nothing delays the redirect to the result page.",
+  "status": "in_progress",
+  "steps": [
+    "In app/routers/exam.py: Replace the asyncio.wait_for AI feedback block with direct call to _generate_fallback_feedback()",
+    "In app/routers/exam.py: Add async helper _send_email_safe() that wraps send_result_email in try/except",
+    "In app/routers/exam.py: Add async helper _send_whatsapp_safe() that wraps send_whatsapp_notification in try/except",
+    "In app/routers/exam.py: Add async helper _schedule_followup_safe() that handles the 7-day follow-up DB insert in try/except",
+    "In app/routers/exam.py: Replace blocking email/WhatsApp/notification code with asyncio.ensure_future() calls",
+    "Verify all tests pass"
+  ],
+  "acceptance_criteria": [
+    "Groq AI is never called during submit - fallback feedback is used directly",
+    "Email sending does not block the redirect response",
+    "WhatsApp sending does not block the redirect response",
+    "Follow-up notification scheduling does not block the redirect response",
+    "Result page loads instantly after submission",
+    "All backend tests pass"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Autonomous-Operation-Management-System- && pyenv global 3.11.15 && python -m pytest tests/ -q"
+  ],
+  "blocked_reason": null,
+  "findings": null
+}
