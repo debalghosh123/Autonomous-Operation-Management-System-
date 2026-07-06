@@ -884,6 +884,14 @@ body {
 }
 
 /* Logo styles */
+.nav-brand-text {
+    font-size: 1.2rem;
+    font-weight: 700;
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
 .nav-logo {
     height: 36px;
     width: auto;

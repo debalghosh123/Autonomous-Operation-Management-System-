@@ -2,6 +2,7 @@
 Career Lab Consulting - Authentication Router
 Handles candidate registration and admin login
 """
+import os
 from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -9,7 +10,8 @@ from app.database import get_db
 from app.config import settings
 
 router = APIRouter(tags=["Authentication"])
-templates = Jinja2Templates(directory="templates")
+_templates_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "templates")
+templates = Jinja2Templates(directory=_templates_dir)
 
 
 @router.get("/", response_class=HTMLResponse)
