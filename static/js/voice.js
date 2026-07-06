@@ -1,348 +1,165 @@
 /**
- * Career Lab Consulting - Voice Mode (Complete Rewrite)
- * Persistent speech recognition with client-side command processing.
- * No API calls needed - all commands handled locally for instant response.
+ * Career Lab Consulting - Keyboard Shortcuts Handler
+ * Listens for keydown events to navigate exam questions and select options.
+ * Shortcuts:
+ *   ArrowRight  - navigate to next question
+ *   ArrowLeft   - navigate to previous question
+ *   A/B/C/D or 1/2/3/4 - select option
+ *   Enter       - submit exam
+ *   ?           - toggle shortcuts guide
  */
 
 (function() {
     'use strict';
 
-    // State
-    let recognition = null;
-    let isListening = false;
-    let isVoiceActivated = false;
-    let consecutiveErrors = 0;
-    let restartTimeout = null;
-    let retryTimeout = null;
-    const MAX_CONSECUTIVE_ERRORS = 5;
-    const RESTART_DELAY = 100;
-    const ERROR_RESTART_DELAY = 500;
-    const BACKOFF_RETRY_DELAY = 3000;
-
-    // DOM references (populated on DOMContentLoaded)
-    let voiceBtn = null;
-    let voiceOverlay = null;
-    let voiceClose = null;
-    let voiceFeedback = null;
-    let voiceStatus = null;
-    let voiceIndicator = null;
-    let voiceLastCommand = null;
-    let voiceActionTaken = null;
-
-    // Command patterns for client-side matching
-    const COMMANDS = {
-        next: /\b(next|skip|forward|move forward|go forward|next question)\b/i,
-        previous: /\b(previous|prev|back|go back|last|before)\b/i,
-        selectA: /\b(select a|option a|answer a|choose a)\b/i,
-        selectB: /\b(select b|option b|answer b|choose b)\b/i,
-        selectC: /\b(select c|option c|answer c|choose c)\b/i,
-        selectD: /\b(select d|option d|answer d|choose d)\b/i,
-        singleA: /^a$/i,
-        singleB: /^b$/i,
-        singleC: /^c$/i,
-        singleD: /^d$/i,
-        submit: /\b(submit|finish|done|end|end exam|submit exam|finish exam)\b/i,
-        time: /\b(time|how much time|timer|time left|time remaining|how long)\b/i,
-        read: /\b(read|read question|read it|read aloud|read the question|read out)\b/i,
-        help: /\b(help|commands|what can i say|what commands)\b/i
-    };
+    let shortcutsGuideVisible = false;
+    let toastTimeout = null;
 
     document.addEventListener('DOMContentLoaded', function() {
-        voiceBtn = document.getElementById('voice-btn');
-        voiceOverlay = document.getElementById('voice-overlay');
-        voiceClose = document.getElementById('voice-close');
-        voiceFeedback = document.getElementById('voice-feedback');
-        voiceStatus = document.getElementById('voice-status');
-        voiceIndicator = document.getElementById('voice-indicator');
-        voiceLastCommand = document.getElementById('voice-last-command');
-        voiceActionTaken = document.getElementById('voice-action-taken');
+        const shortcutsBtn = document.getElementById('shortcuts-btn');
+        const shortcutsGuide = document.getElementById('shortcuts-guide');
+        const shortcutsGuideClose = document.getElementById('shortcuts-guide-close');
 
-        if (voiceBtn) {
-            voiceBtn.addEventListener('click', function() {
-                if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-                    showVoiceAlert('Voice mode is not supported in your browser. Please use Chrome or Edge.');
-                    return;
+        if (shortcutsBtn) {
+            shortcutsBtn.addEventListener('click', function() {
+                toggleShortcutsGuide();
+            });
+        }
+
+        if (shortcutsGuideClose) {
+            shortcutsGuideClose.addEventListener('click', function() {
+                hideShortcutsGuide();
+            });
+        }
+
+        // Close guide when clicking overlay background
+        if (shortcutsGuide) {
+            shortcutsGuide.addEventListener('click', function(e) {
+                if (e.target === shortcutsGuide) {
+                    hideShortcutsGuide();
                 }
-                toggleVoiceOverlay();
             });
         }
 
-        if (voiceClose) {
-            voiceClose.addEventListener('click', function() {
-                closeOverlay();
-            });
-        }
+        // Listen for keyboard shortcuts
+        document.addEventListener('keydown', handleKeydown);
     });
 
     /**
-     * Toggle the voice overlay panel (listening persists after close)
+     * Main keydown handler
      */
-    function toggleVoiceOverlay() {
-        if (!isVoiceActivated) {
-            // First activation - start listening and show overlay
-            isVoiceActivated = true;
-            showOverlay();
-            startListening();
-            showVoiceIndicator();
-        } else if (voiceOverlay && voiceOverlay.style.display === 'flex') {
-            // Overlay is visible - close it (keep listening)
-            closeOverlay();
-        } else {
-            // Overlay is hidden - show it again
-            showOverlay();
-        }
-    }
-
-    function showOverlay() {
-        if (voiceOverlay) {
-            voiceOverlay.style.display = 'flex';
-        }
-    }
-
-    function closeOverlay() {
-        if (voiceOverlay) {
-            voiceOverlay.style.display = 'none';
-        }
-        // Voice continues listening in background
-    }
-
-    /**
-     * Show/hide voice indicator in exam header
-     */
-    function showVoiceIndicator() {
-        if (voiceIndicator) {
-            voiceIndicator.style.display = 'inline-flex';
-        }
-    }
-
-    function hideVoiceIndicator() {
-        if (voiceIndicator) {
-            voiceIndicator.style.display = 'none';
-        }
-    }
-
-    /**
-     * Start speech recognition with persistent listening
-     */
-    function startListening() {
-        if (recognition) {
-            try { recognition.abort(); } catch(e) {}
+    function handleKeydown(e) {
+        // Ignore if user is typing in an input or textarea
+        var tag = e.target.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+            return;
         }
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) return;
+        var key = e.key;
 
-        recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-        recognition.maxAlternatives = 3;
-
-        recognition.onstart = function() {
-            isListening = true;
-            consecutiveErrors = 0;
-            updateStatus('Listening... Speak a command.');
-            updateIndicatorState('listening');
-        };
-
-        recognition.onresult = function(event) {
-            consecutiveErrors = 0;
-            for (var i = event.resultIndex; i < event.results.length; i++) {
-                var result = event.results[i];
-                var transcript = result[0].transcript.trim();
-                if (!transcript) continue;
-
-                if (result.isFinal) {
-                    processCommand(transcript);
-                } else {
-                    // Interim: execute immediately if it clearly matches a short command
-                    var lower = transcript.toLowerCase().trim();
-                    if (/^(next|skip|back|previous|submit|finish|done|time|read|help|a|b|c|d)$/i.test(lower)) {
-                        processCommand(transcript);
-                        try { recognition.abort(); } catch(e) {}
-                        return;
-                    }
-                }
-            }
-        };
-
-        recognition.onerror = function(event) {
-            // 'no-speech' and 'aborted' are normal - not real errors
-            if (event.error === 'no-speech' || event.error === 'aborted') {
-                return;
-            }
-
-            consecutiveErrors++;
-            console.warn('[Voice] Recognition error:', event.error, '(count:', consecutiveErrors, ')');
-
-            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-                updateStatus('Microphone issue detected. Retrying...');
-                updateIndicatorState('error');
-                // Back off to 3-second retry
-                clearTimeout(retryTimeout);
-                retryTimeout = setTimeout(function() {
-                    if (isVoiceActivated) {
-                        restartRecognition();
-                    }
-                }, BACKOFF_RETRY_DELAY);
-            } else {
-                updateStatus('Recovering... (' + event.error + ')');
-                // Normal error restart with 1s delay
-                clearTimeout(restartTimeout);
-                restartTimeout = setTimeout(function() {
-                    if (isVoiceActivated) {
-                        restartRecognition();
-                    }
-                }, ERROR_RESTART_DELAY);
-            }
-        };
-
-        recognition.onend = function() {
-            isListening = false;
-            // Only restart if voice is activated AND not paused for TTS
-            if (isVoiceActivated && !isPaused) {
-                clearTimeout(restartTimeout);
-                restartTimeout = setTimeout(function() {
-                    if (isVoiceActivated && !isPaused) {
-                        restartRecognition();
-                    }
-                }, RESTART_DELAY);
-            }
-        };
-
-        try {
-            recognition.start();
-        } catch(e) {
-            console.warn('[Voice] Failed to start recognition:', e);
-            // Retry after delay
-            clearTimeout(restartTimeout);
-            restartTimeout = setTimeout(function() {
-                if (isVoiceActivated) {
-                    restartRecognition();
-                }
-            }, ERROR_RESTART_DELAY);
+        switch (key) {
+            case 'ArrowRight':
+                e.preventDefault();
+                navigateNext();
+                break;
+            case 'ArrowLeft':
+                e.preventDefault();
+                navigatePrevious();
+                break;
+            case 'a':
+            case 'A':
+                e.preventDefault();
+                selectOption('A');
+                break;
+            case 'b':
+            case 'B':
+                e.preventDefault();
+                selectOption('B');
+                break;
+            case 'c':
+            case 'C':
+                e.preventDefault();
+                selectOption('C');
+                break;
+            case 'd':
+            case 'D':
+                e.preventDefault();
+                selectOption('D');
+                break;
+            case '1':
+                e.preventDefault();
+                selectOption('A');
+                break;
+            case '2':
+                e.preventDefault();
+                selectOption('B');
+                break;
+            case '3':
+                e.preventDefault();
+                selectOption('C');
+                break;
+            case '4':
+                e.preventDefault();
+                selectOption('D');
+                break;
+            case 'Enter':
+                e.preventDefault();
+                submitExamShortcut();
+                break;
+            case '?':
+                e.preventDefault();
+                toggleShortcutsGuide();
+                break;
         }
     }
 
     /**
-     * Restart recognition safely
+     * Navigate to next question
      */
-    function restartRecognition() {
-        if (!isVoiceActivated) return;
-        if (recognition) {
-            try { recognition.abort(); } catch(e) {}
-        }
-        startListening();
-    }
-
-    /**
-     * Stop voice mode completely
-     */
-    function stopVoiceMode() {
-        isVoiceActivated = false;
-        isListening = false;
-        clearTimeout(restartTimeout);
-        clearTimeout(retryTimeout);
-        if (recognition) {
-            try { recognition.abort(); } catch(e) {}
-            recognition = null;
-        }
-        hideVoiceIndicator();
-        closeOverlay();
-        updateIndicatorState('off');
-    }
-
-    /**
-     * Process a voice command entirely client-side
-     */
-    function processCommand(transcript) {
-        const command = transcript.toLowerCase().trim();
-        updateLastCommand(transcript);
-
-        // Match commands in priority order
-        if (COMMANDS.next.test(command)) {
-            executeNext();
-        } else if (COMMANDS.previous.test(command)) {
-            executePrevious();
-        } else if (COMMANDS.selectA.test(command) || COMMANDS.singleA.test(command)) {
-            executeSelect('A');
-        } else if (COMMANDS.selectB.test(command) || COMMANDS.singleB.test(command)) {
-            executeSelect('B');
-        } else if (COMMANDS.selectC.test(command) || COMMANDS.singleC.test(command)) {
-            executeSelect('C');
-        } else if (COMMANDS.selectD.test(command) || COMMANDS.singleD.test(command)) {
-            executeSelect('D');
-        } else if (COMMANDS.submit.test(command)) {
-            executeSubmit();
-        } else if (COMMANDS.time.test(command)) {
-            executeTime();
-        } else if (COMMANDS.read.test(command)) {
-            executeReadQuestion();
-        } else if (COMMANDS.help.test(command)) {
-            executeHelp();
-        } else {
-            updateActionTaken('Command not recognized: "' + transcript + '"');
-            speak('Sorry, I did not understand that. Say help for available commands.');
-        }
-    }
-
-    // --- Command Executors ---
-
-    function executeNext() {
+    function navigateNext() {
         if (typeof currentQuestion !== 'undefined' && typeof totalQuestions !== 'undefined') {
             if (currentQuestion < totalQuestions) {
-                var target = currentQuestion + 1;
-                navigateQuestion(target);
-                var msg = 'Moving to question ' + target;
-                updateActionTaken(msg);
-                speak(msg);
+                navigateQuestion(currentQuestion + 1);
+                showToast('Question ' + (currentQuestion) + ' of ' + totalQuestions);
             } else {
-                var msg2 = 'Already on the last question';
-                updateActionTaken(msg2);
-                speak(msg2);
+                showToast('Already on the last question');
             }
         }
     }
 
-    function executePrevious() {
+    /**
+     * Navigate to previous question
+     */
+    function navigatePrevious() {
         if (typeof currentQuestion !== 'undefined') {
             if (currentQuestion > 1) {
-                var target = currentQuestion - 1;
-                navigateQuestion(target);
-                var msg = 'Moving to question ' + target;
-                updateActionTaken(msg);
-                speak(msg);
+                navigateQuestion(currentQuestion - 1);
+                showToast('Question ' + (currentQuestion) + ' of ' + totalQuestions);
             } else {
-                var msg2 = 'Already on the first question';
-                updateActionTaken(msg2);
-                speak(msg2);
+                showToast('Already on the first question');
             }
         }
     }
 
-    function executeSelect(option) {
+    /**
+     * Select an option on the current question
+     */
+    function selectOption(option) {
         var activeCard = document.querySelector('.question-card.active');
         if (activeCard) {
             var radio = activeCard.querySelector('input[value="' + option + '"]');
             if (radio) {
                 radio.checked = true;
                 radio.dispatchEvent(new Event('change', { bubbles: true }));
-                var msg = 'Selected option ' + option;
-                updateActionTaken(msg);
-                speak(msg);
-            } else {
-                var msg2 = 'Option ' + option + ' not found';
-                updateActionTaken(msg2);
-                speak(msg2);
+                showToast('Selected option ' + option);
             }
         }
     }
 
-    function executeSubmit() {
-        updateActionTaken('Submitting exam...');
-        speak('Submitting your exam.');
-
-        // Use showConfirm if available, otherwise native confirm
+    /**
+     * Submit exam via keyboard shortcut
+     */
+    function submitExamShortcut() {
         if (typeof showConfirm === 'function') {
             showConfirm('Submit your exam?', 'Confirm Submission').then(function(confirmed) {
                 if (confirmed) {
@@ -364,138 +181,57 @@
         }
     }
 
-    function executeTime() {
-        var display = document.getElementById('time-display');
-        if (display) {
-            var timeText = display.textContent;
-            var msg = 'Time remaining: ' + timeText;
-            updateActionTaken(msg);
-            speak(msg);
+    /**
+     * Toggle the shortcuts guide overlay
+     */
+    function toggleShortcutsGuide() {
+        if (shortcutsGuideVisible) {
+            hideShortcutsGuide();
         } else {
-            speak('Timer not available.');
+            showShortcutsGuide();
         }
     }
 
-    function executeReadQuestion() {
-        var activeCard = document.querySelector('.question-card.active');
-        if (!activeCard) {
-            speak('No active question found.');
-            return;
-        }
-
-        var questionText = activeCard.querySelector('.question-text');
-        var options = activeCard.querySelectorAll('.option-text');
-
-        var textToRead = '';
-        if (questionText) {
-            textToRead = questionText.textContent.trim();
-        }
-
-        if (options.length > 0) {
-            var labels = ['A', 'B', 'C', 'D'];
-            textToRead += '. Options: ';
-            options.forEach(function(opt, index) {
-                if (index < labels.length) {
-                    textToRead += labels[index] + ': ' + opt.textContent.trim() + '. ';
-                }
-            });
-        }
-
-        updateActionTaken('Reading question aloud');
-        speak(textToRead);
-    }
-
-    function executeHelp() {
-        var helpText = 'Available commands: ' +
-            'Say next or skip to go forward. ' +
-            'Say previous or back to go back. ' +
-            'Say A, B, C, or D to select an answer. ' +
-            'Say select A, select B, select C, or select D. ' +
-            'Say submit or finish to end the exam. ' +
-            'Say time to hear remaining time. ' +
-            'Say read to hear the current question. ' +
-            'Say help to hear these commands again.';
-        updateActionTaken('Listing available commands');
-        speak(helpText);
-    }
-
-    // --- Text-to-Speech ---
-
-    var isPaused = false;
-
-    function speak(text) {
-        if (!('speechSynthesis' in window)) return;
-        // Pause recognition while speaking (browser mutes mic during TTS)
-        isPaused = true;
-        if (recognition) { try { recognition.abort(); } catch(e) {} }
-
-        window.speechSynthesis.cancel();
-        var utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
-        utterance.lang = 'en-US';
-        utterance.onend = function() {
-            isPaused = false;
-            if (isVoiceActivated) {
-                setTimeout(restartRecognition, 300);
-            }
-        };
-        utterance.onerror = function() {
-            isPaused = false;
-            if (isVoiceActivated) {
-                setTimeout(restartRecognition, 300);
-            }
-        };
-        window.speechSynthesis.speak(utterance);
-    }
-
-    // --- UI Updates ---
-
-    function updateStatus(text) {
-        if (voiceStatus) {
-            voiceStatus.textContent = text;
+    function showShortcutsGuide() {
+        var guide = document.getElementById('shortcuts-guide');
+        if (guide) {
+            guide.style.display = 'flex';
+            shortcutsGuideVisible = true;
         }
     }
 
-    function updateLastCommand(text) {
-        if (voiceFeedback) {
-            voiceFeedback.textContent = 'Heard: "' + text + '"';
-        }
-        if (voiceLastCommand) {
-            voiceLastCommand.textContent = '"' + text + '"';
-        }
-    }
-
-    function updateActionTaken(text) {
-        if (voiceActionTaken) {
-            voiceActionTaken.textContent = text;
-        }
-        // Also update the overlay feedback
-        if (voiceFeedback) {
-            voiceFeedback.innerHTML = '<span class="voice-heard">Heard: "' + (voiceLastCommand ? voiceLastCommand.textContent : '') + '"</span><br><span class="voice-action">' + text + '</span>';
+    function hideShortcutsGuide() {
+        var guide = document.getElementById('shortcuts-guide');
+        if (guide) {
+            guide.style.display = 'none';
+            shortcutsGuideVisible = false;
         }
     }
 
-    function updateIndicatorState(state) {
-        if (!voiceIndicator) return;
-        voiceIndicator.classList.remove('voice-indicator-listening', 'voice-indicator-error');
-        if (state === 'listening') {
-            voiceIndicator.classList.add('voice-indicator-listening');
-        } else if (state === 'error') {
-            voiceIndicator.classList.add('voice-indicator-error');
+    /**
+     * Show a feedback toast notification
+     */
+    function showToast(message) {
+        var toast = document.getElementById('shortcuts-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'shortcuts-toast';
+            toast.className = 'shortcuts-toast';
+            document.body.appendChild(toast);
         }
+
+        toast.textContent = message;
+        toast.classList.add('show');
+
+        if (toastTimeout) {
+            clearTimeout(toastTimeout);
+        }
+        toastTimeout = setTimeout(function() {
+            toast.classList.remove('show');
+        }, 1500);
     }
 
-    function showVoiceAlert(message) {
-        if (typeof showAlert === 'function') {
-            showAlert(message, 'Voice Mode', 'warning');
-        } else {
-            alert(message);
-        }
-    }
-
-    // Expose stopVoiceMode globally for cleanup
-    window.stopVoiceMode = stopVoiceMode;
+    // Expose for cleanup if needed
+    window.stopVoiceMode = function() {};
 
 })();
