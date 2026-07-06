@@ -133,7 +133,7 @@
         if (!SpeechRecognition) return;
 
         recognition = new SpeechRecognition();
-        recognition.continuous = true;
+        recognition.continuous = false;
         recognition.interimResults = false;
         recognition.lang = 'en-US';
         recognition.maxAlternatives = 1;
@@ -189,11 +189,11 @@
 
         recognition.onend = function() {
             isListening = false;
-            // Always restart if voice is activated (500ms delay prevents rapid loops)
-            if (isVoiceActivated) {
+            // Only restart if voice is activated AND not paused for TTS
+            if (isVoiceActivated && !isPaused) {
                 clearTimeout(restartTimeout);
                 restartTimeout = setTimeout(function() {
-                    if (isVoiceActivated) {
+                    if (isVoiceActivated && !isPaused) {
                         restartRecognition();
                     }
                 }, RESTART_DELAY);
@@ -411,15 +411,32 @@
 
     // --- Text-to-Speech ---
 
+    var isPaused = false;
+
     function speak(text) {
         if (!('speechSynthesis' in window)) return;
-        // Cancel any current speech
+        // Pause recognition while speaking (browser mutes mic during TTS)
+        isPaused = true;
+        if (recognition) { try { recognition.abort(); } catch(e) {} }
+
         window.speechSynthesis.cancel();
         var utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
         utterance.volume = 1.0;
         utterance.lang = 'en-US';
+        utterance.onend = function() {
+            isPaused = false;
+            if (isVoiceActivated) {
+                setTimeout(restartRecognition, 300);
+            }
+        };
+        utterance.onerror = function() {
+            isPaused = false;
+            if (isVoiceActivated) {
+                setTimeout(restartRecognition, 300);
+            }
+        };
         window.speechSynthesis.speak(utterance);
     }
 
