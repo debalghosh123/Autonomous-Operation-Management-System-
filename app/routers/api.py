@@ -2,6 +2,7 @@
 Career Lab Consulting - API Router
 RESTful API endpoints for programmatic access
 """
+from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from app.database import get_db
 from app.models.schemas import (
@@ -12,7 +13,7 @@ from app.models.schemas import (
     NotificationRequest,
 )
 from app.services.voice_service import process_voice_command
-from app.services.email_service import send_result_email
+from app.services.email_service import send_result_email, send_followup_email
 from app.services.whatsapp_service import send_whatsapp_notification
 from app.config import settings
 
@@ -215,3 +216,58 @@ async def test_groq():
         result["exception"] = str(e)
     
     return result
+
+
+@router.post("/process-followups")
+async def process_followups():
+    """Process scheduled 7-day follow-up emails for failed candidates.
+
+    Queries notifications with type='follow_up_7day', status='scheduled',
+    and scheduled_at <= now. Sends a follow-up email to each candidate
+    and updates the notification status to 'sent'.
+    """
+    now = datetime.now().isoformat()
+    processed = 0
+    failed = 0
+
+    with get_db() as db:
+        # Find all due follow-up notifications
+        notifications = db.execute(
+            """SELECT n.id, n.candidate_id, c.name, c.email
+               FROM notifications n
+               JOIN candidates c ON n.candidate_id = c.id
+               WHERE n.type = 'follow_up_7day'
+                 AND n.status = 'scheduled'
+                 AND n.scheduled_at <= ?""",
+            (now,),
+        ).fetchall()
+
+        for notif in notifications:
+            try:
+                success = await send_followup_email(notif["email"], notif["name"])
+                if success:
+                    db.execute(
+                        "UPDATE notifications SET status = 'sent', sent_at = ? WHERE id = ?",
+                        (datetime.now().isoformat(), notif["id"]),
+                    )
+                    processed += 1
+                else:
+                    # Email not configured but logged successfully
+                    db.execute(
+                        "UPDATE notifications SET status = 'sent', sent_at = ? WHERE id = ?",
+                        (datetime.now().isoformat(), notif["id"]),
+                    )
+                    processed += 1
+            except Exception as e:
+                print(f"[Followup] Error processing notification {notif['id']}: {e}")
+                db.execute(
+                    "UPDATE notifications SET status = 'failed' WHERE id = ?",
+                    (notif["id"],),
+                )
+                failed += 1
+
+    return {
+        "processed": processed,
+        "failed": failed,
+        "total_found": processed + failed,
+    }
