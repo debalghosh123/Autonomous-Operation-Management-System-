@@ -1,0 +1,21 @@
+{
+  "id": "FEAT-012",
+  "type": "fix",
+  "description": "Fix Railway deployment 'Cannot GET' issue. Remove healthcheck from railway.json (Railway times out waiting for /api/health because DB seeding takes too long on first boot). Switch builder to NIXPACKS. Also convert _seed_questions to use executemany for bulk insert instead of inserting 10,000 rows one by one.",
+  "status": "in_progress",
+  "steps": [
+    "Update railway.json: remove healthcheckPath and healthcheckTimeout from deploy section, change builder from DOCKERFILE to NIXPACKS, remove dockerfilePath.",
+    "Update app/database.py _seed_questions() to use cursor.executemany() with a list of tuples instead of a for-loop with cursor.execute() for each row."
+  ],
+  "acceptance_criteria": [
+    "railway.json has no healthcheck configuration",
+    "railway.json uses NIXPACKS builder",
+    "Database seeding uses executemany for bulk insert",
+    "All existing tests pass"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -q"
+  ],
+  "blocked_reason": null,
+  "findings": null
+}

@@ -139,10 +139,11 @@ def _seed_questions(cursor):
     """Seed the database with 10000 Python evaluation questions from question bank."""
     from app.question_bank_all import QUESTION_BANK
 
-    for q in QUESTION_BANK:
-        cursor.execute("""
-            INSERT INTO questions (question_text, option_a, option_b, option_c, option_d,
-                                   correct_answer, difficulty, topic, marks)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 4)
-        """, (q['question_text'], q['option_a'], q['option_b'], q['option_c'],
-              q['option_d'], q['correct_answer'], q['difficulty'], q['topic']))
+    data = [(q['question_text'], q['option_a'], q['option_b'], q['option_c'],
+             q['option_d'], q['correct_answer'], q['difficulty'], q['topic'], 4)
+            for q in QUESTION_BANK]
+    cursor.executemany("""
+        INSERT INTO questions (question_text, option_a, option_b, option_c, option_d,
+                               correct_answer, difficulty, topic, marks)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, data)
