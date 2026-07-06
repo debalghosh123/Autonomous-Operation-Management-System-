@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.database import get_db
 from app.config import settings
+from app.services.followup_service import check_and_send_followups
 
 router = APIRouter(tags=["Authentication"])
 _templates_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "templates")
@@ -17,6 +18,7 @@ templates = Jinja2Templates(directory=_templates_dir)
 @router.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Landing page with Career Lab branding."""
+    await check_and_send_followups()
     return templates.TemplateResponse("index.html", {"request": request})
 
 
