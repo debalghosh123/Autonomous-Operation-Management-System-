@@ -2,9 +2,9 @@
   "id": "FEAT-016",
   "type": "feat",
   "description": "Complete rewrite of voice system (voice.js) to fix the bug where voice stops working after 1 question. Process ALL commands client-side (no API calls), implement persistent listening with robust error recovery, visual feedback, TTS confirmations, read-question-aloud command, and persistent voice indicator in exam header.",
-  "status": "in_progress",
+  "status": "completed",
   "blocked_reason": null,
-  "findings": null,
+  "findings": "All 37 existing tests pass. Voice API endpoint (/api/voice) kept server-side for backward compatibility but client no longer calls it. Voice.js is now a self-contained IIFE with zero external dependencies beyond the globals from exam.js (currentQuestion, totalQuestions, navigateQuestion, submitExam).",
   "steps": [
     "Rewrite static/js/voice.js with client-side command processing, persistent listening, error recovery, TTS, visual feedback",
     "Update templates/exam_questions.html to add voice-indicator span in exam header",
