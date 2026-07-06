@@ -975,3 +975,117 @@ body {
     .action-grid { grid-template-columns: 1fr; }
     .ai-feedback-header { flex-direction: column; gap: 8px; }
 }
+
+/* Custom Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    animation: modalFadeIn 0.25s ease forwards;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalSlideIn {
+    from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.modal-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 0;
+    width: 90%;
+    max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 212, 255, 0.05);
+    animation: modalSlideIn 0.3s ease forwards;
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 24px 24px 16px;
+    text-align: center;
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.05), rgba(0, 153, 204, 0.05));
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-icon {
+    font-size: 2.5rem;
+    margin-bottom: 8px;
+    color: var(--accent-primary);
+}
+
+.modal-icon.modal-icon-warning {
+    color: var(--warning);
+}
+
+.modal-icon.modal-icon-error {
+    color: var(--danger);
+}
+
+.modal-icon.modal-icon-success {
+    color: var(--success);
+}
+
+.modal-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.modal-body {
+    padding: 20px 24px;
+}
+
+.modal-message {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    text-align: center;
+    margin: 0;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    padding: 16px 24px 24px;
+    justify-content: center;
+}
+
+.modal-btn-cancel {
+    min-width: 100px;
+    justify-content: center;
+}
+
+.modal-btn-confirm {
+    min-width: 100px;
+    justify-content: center;
+}
+
+@media (max-width: 480px) {
+    .modal-container {
+        width: 95%;
+        margin: 0 10px;
+    }
+    .modal-actions {
+        flex-direction: column-reverse;
+    }
+    .modal-btn-cancel,
+    .modal-btn-confirm {
+        width: 100%;
+    }
+}

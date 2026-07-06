@@ -18,7 +18,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
                 toggleVoiceMode();
             } else {
-                alert('Voice mode is not supported in your browser. Please use Chrome or Edge.');
+                showAlert(
+                    'Voice mode is not supported in your browser. Please use Chrome or Edge for voice commands.',
+                    'Browser Not Supported',
+                    'warning'
+                );
             }
         });
     }
@@ -104,9 +108,11 @@ async function processVoiceInput(command) {
                 selectAnswer(data.answer);
                 break;
             case 'submit_exam':
-                if (confirm('Submit your exam?')) {
-                    document.getElementById('exam-form').submit();
-                }
+                showConfirm('Submit your exam?', 'Confirm Submission').then(function(confirmed) {
+                    if (confirmed) {
+                        document.getElementById('exam-form').submit();
+                    }
+                });
                 break;
             case 'show_time':
                 feedback.textContent = `Time remaining: ${document.getElementById('time-display').textContent}`;

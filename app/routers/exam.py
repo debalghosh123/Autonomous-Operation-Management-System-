@@ -3,13 +3,14 @@ Career Lab Consulting - Exam Router
 Handles exam flow: start, questions, submit, results
 """
 import os
+import asyncio
 from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
 from app.database import get_db
 from app.config import settings
-from app.services.groq_service import generate_ai_feedback
+from app.services.groq_service import generate_ai_feedback, _generate_fallback_feedback
 from app.services.email_service import send_result_email
 from app.services.whatsapp_service import send_whatsapp_notification
 from app.utils.helpers import calculate_percentage, is_passed
@@ -201,8 +202,15 @@ async def submit_exam(request: Request, exam_id: int):
         percentage = calculate_percentage(score, settings.TOTAL_MARKS)
         passed = is_passed(percentage, settings.PASSING_PERCENTAGE)
 
-        # Generate AI feedback
-        ai_feedback = await generate_ai_feedback(score, settings.TOTAL_MARKS, percentage, topic_performance)
+        # Generate AI feedback with timeout to avoid slow responses
+        try:
+            ai_feedback = await asyncio.wait_for(
+                generate_ai_feedback(score, settings.TOTAL_MARKS, percentage, topic_performance),
+                timeout=10.0
+            )
+        except (asyncio.TimeoutError, Exception) as e:
+            print(f"[AI Feedback] Timeout or error generating feedback: {type(e).__name__}: {e}")
+            ai_feedback = _generate_fallback_feedback(score, settings.TOTAL_MARKS, percentage, topic_performance)
 
         # Update exam record
         db.execute(
