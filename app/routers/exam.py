@@ -206,7 +206,7 @@ async def submit_exam(request: Request, exam_id: int):
         try:
             ai_feedback = await asyncio.wait_for(
                 generate_ai_feedback(score, settings.TOTAL_MARKS, percentage, topic_performance),
-                timeout=10.0
+                timeout=5.0
             )
         except (asyncio.TimeoutError, Exception) as e:
             print(f"[AI Feedback] Timeout or error generating feedback: {type(e).__name__}: {e}")

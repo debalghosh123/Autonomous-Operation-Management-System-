@@ -75,17 +75,30 @@ function onQuestionTimeout() {
  * Submit the exam form and stop camera
  */
 function submitExam() {
-    // Stop camera stream
-    if (typeof stopCamera === 'function') {
-        stopCamera();
+    // Stop camera stream (wrapped in try/catch to prevent blocking form submission)
+    try {
+        if (typeof stopCamera === 'function') {
+            stopCamera();
+        }
+    } catch (e) {
+        console.warn('[Exam] Error stopping camera:', e);
     }
-    // Stop eye detection
-    if (typeof stopEyeDetection === 'function') {
-        stopEyeDetection();
+    // Stop eye detection (wrapped in try/catch to prevent blocking form submission)
+    try {
+        if (typeof stopEyeDetection === 'function') {
+            stopEyeDetection();
+        }
+    } catch (e) {
+        console.warn('[Exam] Error stopping eye detection:', e);
     }
     // Clear timer
     if (timerInterval) {
         clearInterval(timerInterval);
+    }
+    // Show processing overlay
+    var overlay = document.getElementById('processing-overlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
     }
     document.getElementById('exam-form').submit();
 }
@@ -154,24 +167,25 @@ function setupNavigation() {
         submitBtn.addEventListener('click', function(e) {
             e.preventDefault();
             const answered = document.querySelectorAll('.dot.answered').length;
+            var message;
             if (answered < totalQuestions) {
-                showConfirm(
-                    'You have answered ' + answered + '/' + totalQuestions + ' questions. Are you sure you want to submit?',
-                    'Submit Exam'
-                ).then(function(confirmed) {
+                message = 'You have answered ' + answered + '/' + totalQuestions + ' questions. Are you sure you want to submit?';
+            } else {
+                message = 'You have answered all questions. Ready to submit your exam?';
+            }
+
+            // Guard: if showConfirm is not available, fall back to native confirm()
+            if (typeof showConfirm === 'function') {
+                showConfirm(message, 'Submit Exam').then(function(confirmed) {
                     if (confirmed) {
                         submitExam();
                     }
                 });
             } else {
-                showConfirm(
-                    'You have answered all questions. Ready to submit your exam?',
-                    'Submit Exam'
-                ).then(function(confirmed) {
-                    if (confirmed) {
-                        submitExam();
-                    }
-                });
+                // Fallback to native confirm if modal system is unavailable
+                if (confirm(message)) {
+                    submitExam();
+                }
             }
         });
     }
