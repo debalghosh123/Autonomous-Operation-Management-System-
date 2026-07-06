@@ -15,8 +15,8 @@
     let restartTimeout = null;
     let retryTimeout = null;
     const MAX_CONSECUTIVE_ERRORS = 5;
-    const RESTART_DELAY = 500;
-    const ERROR_RESTART_DELAY = 1000;
+    const RESTART_DELAY = 100;
+    const ERROR_RESTART_DELAY = 500;
     const BACKOFF_RETRY_DELAY = 3000;
 
     // DOM references (populated on DOMContentLoaded)
@@ -133,10 +133,10 @@
         if (!SpeechRecognition) return;
 
         recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
+        recognition.continuous = true;
+        recognition.interimResults = true;
         recognition.lang = 'en-US';
-        recognition.maxAlternatives = 1;
+        recognition.maxAlternatives = 3;
 
         recognition.onstart = function() {
             isListening = true;
@@ -147,11 +147,21 @@
 
         recognition.onresult = function(event) {
             consecutiveErrors = 0;
-            const lastResult = event.results[event.results.length - 1];
-            if (lastResult.isFinal) {
-                const transcript = lastResult[0].transcript.trim();
-                if (transcript) {
+            for (var i = event.resultIndex; i < event.results.length; i++) {
+                var result = event.results[i];
+                var transcript = result[0].transcript.trim();
+                if (!transcript) continue;
+
+                if (result.isFinal) {
                     processCommand(transcript);
+                } else {
+                    // Interim: execute immediately if it clearly matches a short command
+                    var lower = transcript.toLowerCase().trim();
+                    if (/^(next|skip|back|previous|submit|finish|done|time|read|help|a|b|c|d)$/i.test(lower)) {
+                        processCommand(transcript);
+                        try { recognition.abort(); } catch(e) {}
+                        return;
+                    }
                 }
             }
         };
