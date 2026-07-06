@@ -1,0 +1,23 @@
+{
+  "id": "FEAT-016",
+  "type": "feat",
+  "description": "Complete rewrite of voice system (voice.js) to fix the bug where voice stops working after 1 question. Process ALL commands client-side (no API calls), implement persistent listening with robust error recovery, visual feedback, TTS confirmations, read-question-aloud command, and persistent voice indicator in exam header.",
+  "status": "completed",
+  "blocked_reason": null,
+  "findings": "All 37 existing tests pass. Voice API endpoint (/api/voice) kept server-side for backward compatibility but client no longer calls it. Voice.js is now a self-contained IIFE with zero external dependencies beyond the globals from exam.js (currentQuestion, totalQuestions, navigateQuestion, submitExam).",
+  "steps": [
+    "Rewrite static/js/voice.js with client-side command processing, persistent listening, error recovery, TTS, visual feedback",
+    "Update templates/exam_questions.html to add voice-indicator span in exam header",
+    "Add CSS for voice indicator (pulsing green dot animation) in static/css/exam.css"
+  ],
+  "acceptance_criteria": [
+    "All basic commands (next, previous, select A/B/C/D, submit, time, read, help) processed client-side without API calls",
+    "Speech recognition restarts on end (500ms delay) and on error (1s delay)",
+    "After 5 consecutive errors, shows microphone issue message but retries every 3 seconds",
+    "Visual feedback shows pulsing dot when listening, last heard command, and action taken",
+    "TTS confirmation for every action",
+    "Read question aloud command reads current question text and options",
+    "Voice keeps listening after closing overlay with small microphone indicator in exam header",
+    "CSS pulsing green dot animation for voice indicator"
+  ]
+}

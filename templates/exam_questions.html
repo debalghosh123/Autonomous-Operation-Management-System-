@@ -19,6 +19,9 @@
             <span class="question-counter" id="question-counter">
                 Q <span id="current-q">1</span>/{{ total_questions }}
             </span>
+            <span id="voice-indicator" class="voice-active-indicator" style="display:none">
+                <i class="fas fa-microphone"></i>
+            </span>
         </div>
 
         <div class="voice-controls">
@@ -136,10 +139,22 @@
 <div class="voice-overlay" id="voice-overlay" style="display: none;">
     <div class="voice-modal">
         <h3><i class="fas fa-microphone"></i> Voice Mode Active</h3>
-        <p id="voice-status">Listening...</p>
+        <div class="voice-listening-indicator">
+            <span class="voice-pulse-dot"></span>
+            <span id="voice-status">Listening...</span>
+        </div>
         <div class="voice-feedback" id="voice-feedback"></div>
-        <button class="btn btn-danger" id="voice-close">
-            <i class="fas fa-times"></i> Close
+        <div class="voice-details">
+            <p class="voice-detail-label">Last heard:</p>
+            <p id="voice-last-command" class="voice-detail-value">--</p>
+            <p class="voice-detail-label">Action:</p>
+            <p id="voice-action-taken" class="voice-detail-value">Waiting for command...</p>
+        </div>
+        <div class="voice-commands-hint">
+            <p><strong>Commands:</strong> next, previous, A/B/C/D, submit, time, read, help</p>
+        </div>
+        <button class="btn btn-secondary" id="voice-close">
+            <i class="fas fa-times"></i> Close (keeps listening)
         </button>
     </div>
 </div>
