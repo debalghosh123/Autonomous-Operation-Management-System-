@@ -167,7 +167,7 @@
             <div class="sc-label">Required to Qualify</div>
         </div>
         <div class="score-card">
-            <div class="sc-value" style="color: {% if passed %}#10b981{% else %}#f59e0b{% endif %}">{{ "QUALIFIED" if passed else "NOT YET" }}</div>
+            <div class="sc-value" style="color: {% if passed %}#10b981{% else %}#f59e0b{% endif %}">{{ "QUALIFIED" if passed else "NOT QUALIFIED" }}</div>
             <div class="sc-label">Status</div>
         </div>
     </div>
@@ -180,7 +180,7 @@
             <div class="ai-meta">Powered by Llama3 AI • Career Lab Consulting</div>
         </div>
         <div class="ai-body">
-            {{ exam.ai_feedback | replace('\n\n', '</p><p>') | replace('\n', '<br>') | replace('## ', '</p><h3>') | replace('**', '<strong>') | safe }}
+            {{ exam.ai_feedback | replace('## ', '') | replace('# ', '') | replace('### ', '') | replace('####', '') | replace('**', '') | replace('\n\n', '</p><p>') | replace('\n', '<br>') | safe }}
         </div>
     </div>
     {% endif %}
