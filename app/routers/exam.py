@@ -2,6 +2,7 @@
 Career Lab Consulting - Exam Router
 Handles exam flow: start, questions, submit, results
 """
+import os
 from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -14,7 +15,8 @@ from app.services.whatsapp_service import send_whatsapp_notification
 from app.utils.helpers import calculate_percentage, is_passed
 
 router = APIRouter(prefix="/exam", tags=["Exam"])
-templates = Jinja2Templates(directory="templates")
+_templates_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "templates")
+templates = Jinja2Templates(directory=_templates_dir)
 
 
 @router.get("/start/{candidate_id}", response_class=HTMLResponse)

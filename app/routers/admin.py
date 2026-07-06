@@ -2,6 +2,7 @@
 Career Lab Consulting - Admin Router
 Admin dashboard and management panel
 """
+import os
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -9,7 +10,8 @@ from app.database import get_db
 from app.config import settings
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
-templates = Jinja2Templates(directory="templates")
+_templates_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "templates")
+templates = Jinja2Templates(directory=_templates_dir)
 
 
 def require_admin(request: Request):
