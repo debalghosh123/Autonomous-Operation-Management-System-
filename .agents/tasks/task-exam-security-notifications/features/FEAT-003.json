@@ -1,0 +1,25 @@
+{
+  "id": "FEAT-003",
+  "type": "fix",
+  "description": "Add detailed email logging and SMTP diagnostics to debug email delivery failures in production. Remove silent exception swallowing in exam submission, add SMTP diagnostic logging at startup, and add a test-email endpoint.",
+  "status": "completed",
+  "steps": [
+    "In app/routers/exam.py, replace the silent 'except Exception: pass' around send_result_email with detailed logging that shows whether the email was sent and logs any error with type and message.",
+    "In app/services/email_service.py, add a diagnostic print before SMTP connection attempt showing the target email, SMTP host, port, and user.",
+    "In app/services/email_service.py, ensure the except block includes type(e).__name__ in error message.",
+    "In main.py, add SMTP configured diagnostic after existing GROQ diagnostics.",
+    "In app/routers/api.py, add a GET /api/test-email endpoint that accepts a 'to' query parameter and sends a test email to verify SMTP configuration."
+  ],
+  "acceptance_criteria": [
+    "Email sending errors in exam submission are logged with descriptive messages instead of being silently swallowed",
+    "SMTP connection attempts are logged with host/port/user details before attempting to connect",
+    "Startup diagnostics show whether SMTP is configured",
+    "A /api/test-email?to=email endpoint exists to verify SMTP configuration",
+    "All existing tests continue to pass"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -q"
+  ],
+  "blocked_reason": null,
+  "findings": "All 37 tests pass. The test-email endpoint correctly returns SMTP_USER/SMTP_PASSWORD not configured errors when env vars are missing. Startup diagnostics now show SMTP status. The send_result_email in exam.py now logs success/failure instead of silently swallowing exceptions."
+}

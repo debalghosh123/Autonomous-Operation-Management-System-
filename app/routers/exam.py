@@ -217,12 +217,16 @@ async def submit_exam(request: Request, exam_id: int):
 
     # Send notifications (non-blocking)
     try:
-        await send_result_email(
+        email_sent = await send_result_email(
             candidate["email"], candidate["name"],
             score, settings.TOTAL_MARKS, percentage, passed
         )
-    except Exception:
-        pass
+        if email_sent:
+            print(f"[Email] Successfully sent result email to {candidate['email']}")
+        else:
+            print(f"[Email] Failed to send email to {candidate['email']} - check SMTP credentials")
+    except Exception as e:
+        print(f"[Email] ERROR sending to {candidate['email']}: {type(e).__name__}: {e}")
 
     # Schedule 7-day follow-up notification for failed candidates
     if not passed:

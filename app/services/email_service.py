@@ -134,6 +134,7 @@ async def send_result_email(to_email: str, candidate_name: str, score: int,
         html_body = _build_not_qualified_email(candidate_name, score, total_marks, percentage)
 
     try:
+        print(f"[Email] Attempting to send to {to_email} via {settings.SMTP_HOST}:{settings.SMTP_PORT} as {settings.SMTP_USER}")
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"] = settings.FROM_EMAIL
@@ -147,7 +148,7 @@ async def send_result_email(to_email: str, candidate_name: str, score: int,
 
         return True
     except Exception as e:
-        print(f"[Email] Error sending to {to_email}: {e}")
+        print(f"[Email] SMTP Error sending to {to_email}: {type(e).__name__}: {e}")
         return False
 
 
@@ -211,6 +212,7 @@ async def send_followup_email(to_email: str, candidate_name: str) -> bool:
     html_body = _build_followup_email(candidate_name)
 
     try:
+        print(f"[Email] Attempting to send follow-up to {to_email} via {settings.SMTP_HOST}:{settings.SMTP_PORT} as {settings.SMTP_USER}")
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"] = settings.FROM_EMAIL
@@ -224,5 +226,5 @@ async def send_followup_email(to_email: str, candidate_name: str) -> bool:
 
         return True
     except Exception as e:
-        print(f"[Email] Error sending follow-up to {to_email}: {e}")
+        print(f"[Email] SMTP Error sending follow-up to {to_email}: {type(e).__name__}: {e}")
         return False

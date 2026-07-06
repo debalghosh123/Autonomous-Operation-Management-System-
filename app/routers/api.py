@@ -160,6 +160,27 @@ async def question_bank_stats():
         }
 
 
+@router.get("/test-email")
+async def test_email(to: str):
+    """Send a test email to verify SMTP configuration."""
+    from app.services.email_service import send_result_email
+    from app.config import settings
+
+    if not settings.SMTP_USER:
+        return {"status": "error", "message": "SMTP_USER not configured in environment"}
+    if not settings.SMTP_PASSWORD:
+        return {"status": "error", "message": "SMTP_PASSWORD not configured in environment"}
+
+    try:
+        success = await send_result_email(to, "Test User", 90, 100, 90.0, True)
+        if success:
+            return {"status": "success", "message": f"Test email sent to {to}"}
+        else:
+            return {"status": "error", "message": "Email function returned False - check Railway logs for details"}
+    except Exception as e:
+        return {"status": "error", "message": f"{type(e).__name__}: {str(e)}"}
+
+
 @router.get("/test-groq")
 async def test_groq():
     """Test if Groq API is working - with full diagnostics."""
