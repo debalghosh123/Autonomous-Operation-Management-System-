@@ -1,0 +1,23 @@
+{
+  "id": "FEAT-015",
+  "type": "feat",
+  "description": "Add self-ping keep-alive mechanism to prevent Render free tier from spinning down the container after inactivity. A background thread pings /api/health every 5 minutes.",
+  "status": "in_progress",
+  "steps": [
+    "Add a _keep_alive function in app/__init__.py lifespan that runs in a daemon thread, pinging http://localhost:{PORT}/api/health every 5 minutes.",
+    "Only start the keep-alive thread in production (when RENDER or PORT env var is set).",
+    "Ensure os, threading, time, and urllib.request are imported."
+  ],
+  "acceptance_criteria": [
+    "Background keep-alive thread starts when RENDER or PORT env var is set",
+    "Thread pings /api/health every 300 seconds",
+    "Thread is a daemon thread so it doesn't block shutdown",
+    "Exceptions in the ping are silently caught",
+    "Existing tests still pass"
+  ],
+  "verification": [
+    "Run: cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -q"
+  ],
+  "blocked_reason": null,
+  "findings": null
+}
