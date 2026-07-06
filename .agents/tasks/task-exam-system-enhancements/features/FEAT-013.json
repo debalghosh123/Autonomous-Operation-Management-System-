@@ -1,0 +1,25 @@
+{
+  "id": "FEAT-013",
+  "type": "fix",
+  "description": "Fix evaluation report not appearing after submitting exam. Multiple issues: (1) showConfirm() fallback if main.js modal is not available, (2) Reduce Groq API timeout from 10s to 5s for Render free tier, (3) Wrap stopCamera/stopEyeDetection in try/catch so errors don't block form submission, (4) Add processing overlay to show loading state during submission.",
+  "status": "completed",
+  "steps": [
+    "In static/js/exam.js: Add guard for showConfirm - if undefined, fall back to native confirm()",
+    "In static/js/exam.js submitExam(): Wrap stopCamera() and stopEyeDetection() in try/catch blocks",
+    "In app/routers/exam.py: Reduce asyncio.wait_for timeout from 10.0 to 5.0 seconds",
+    "In templates/exam_questions.html: Add a processing overlay div that shows when form is submitted",
+    "In static/js/exam.js: Show processing overlay before form.submit()"
+  ],
+  "acceptance_criteria": [
+    "Clicking Submit Exam works even if showConfirm/modal is not available",
+    "Errors in stopCamera/stopEyeDetection do not prevent form submission",
+    "Groq API timeout is 5 seconds instead of 10",
+    "A loading/processing overlay appears while the form is being submitted",
+    "All backend tests pass"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -q"
+  ],
+  "blocked_reason": null,
+  "findings": "All 37 tests pass. Fixed 4 root causes of evaluation report not appearing: (1) showConfirm undefined guard with native confirm() fallback, (2) try/catch around stopCamera/stopEyeDetection so errors don't block form.submit(), (3) Groq API timeout reduced to 5s to handle Render free tier cold starts, (4) Processing overlay shows loading state so users know submission is in progress."
+}
