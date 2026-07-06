@@ -19,16 +19,12 @@
             <span class="question-counter" id="question-counter">
                 Q <span id="current-q">1</span>/{{ total_questions }}
             </span>
-            <span id="voice-indicator" class="voice-active-indicator" style="display:none">
-                <i class="fas fa-microphone"></i>
-            </span>
         </div>
 
-        <div class="voice-controls">
-            <button type="button" class="btn btn-voice" id="voice-btn" title="Speak commands: next, previous, select A/B/C/D">
-                <i class="fas fa-microphone"></i> Voice Mode
+        <div class="shortcuts-controls">
+            <button type="button" class="btn btn-shortcuts" id="shortcuts-btn" title="View keyboard shortcuts (press ? anytime)">
+                <i class="fas fa-keyboard"></i> Shortcuts
             </button>
-            <span class="voice-subtitle">Speak: "next", "previous", "select A/B/C/D"</span>
         </div>
     </div>
 
@@ -135,26 +131,38 @@
     Eye Contact Warning
 </div>
 
-<!-- Voice mode overlay -->
-<div class="voice-overlay" id="voice-overlay" style="display: none;">
-    <div class="voice-modal">
-        <h3><i class="fas fa-microphone"></i> Voice Mode Active</h3>
-        <div class="voice-listening-indicator">
-            <span class="voice-pulse-dot"></span>
-            <span id="voice-status">Listening...</span>
+<!-- Keyboard Shortcuts Guide Overlay -->
+<div class="shortcuts-guide-overlay" id="shortcuts-guide" style="display: none;">
+    <div class="shortcuts-guide-modal">
+        <h3><i class="fas fa-keyboard"></i> Keyboard Shortcuts</h3>
+        <div class="shortcuts-list">
+            <div class="shortcut-item">
+                <kbd>&rarr;</kbd>
+                <span>Next question</span>
+            </div>
+            <div class="shortcut-item">
+                <kbd>&larr;</kbd>
+                <span>Previous question</span>
+            </div>
+            <div class="shortcut-item">
+                <kbd>A</kbd> <kbd>B</kbd> <kbd>C</kbd> <kbd>D</kbd>
+                <span>Select option</span>
+            </div>
+            <div class="shortcut-item">
+                <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd>
+                <span>Select option (numeric)</span>
+            </div>
+            <div class="shortcut-item">
+                <kbd>Enter</kbd>
+                <span>Submit exam</span>
+            </div>
+            <div class="shortcut-item">
+                <kbd>?</kbd>
+                <span>Toggle this guide</span>
+            </div>
         </div>
-        <div class="voice-feedback" id="voice-feedback"></div>
-        <div class="voice-details">
-            <p class="voice-detail-label">Last heard:</p>
-            <p id="voice-last-command" class="voice-detail-value">--</p>
-            <p class="voice-detail-label">Action:</p>
-            <p id="voice-action-taken" class="voice-detail-value">Waiting for command...</p>
-        </div>
-        <div class="voice-commands-hint">
-            <p><strong>Commands:</strong> next, previous, A/B/C/D, submit, time, read, help</p>
-        </div>
-        <button class="btn btn-secondary" id="voice-close">
-            <i class="fas fa-times"></i> Close (keeps listening)
+        <button class="btn btn-secondary" id="shortcuts-guide-close">
+            <i class="fas fa-times"></i> Close
         </button>
     </div>
 </div>
