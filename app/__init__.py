@@ -3,6 +3,9 @@ Career Lab Consulting - Python Evaluation System
 Application factory
 """
 import os
+import threading
+import time as _time
+import urllib.request
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -18,10 +21,28 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
 
+def _keep_alive():
+    """Ping self every 5 minutes to prevent Render from spinning down."""
+    port = os.environ.get("PORT", "8000")
+    url = f"http://localhost:{port}/api/health"
+    while True:
+        _time.sleep(300)  # 5 minutes
+        try:
+            urllib.request.urlopen(url, timeout=5)
+        except Exception:
+            pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan handler: initialize database on startup."""
     init_db()
+
+    # Start keep-alive thread (only in production, not during testing)
+    if os.environ.get("RENDER") or os.environ.get("PORT"):
+        thread = threading.Thread(target=_keep_alive, daemon=True)
+        thread.start()
+
     yield
 
 
