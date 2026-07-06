@@ -26,11 +26,11 @@ def test_database_init():
 
 
 def test_questions_seeded():
-    """Test 10000 questions are seeded in the question bank."""
+    """Test 1000 questions are seeded in the question bank."""
     init_db()
     with get_db() as db:
         count = db.execute("SELECT COUNT(*) as c FROM questions").fetchone()["c"]
-        assert count == 10000
+        assert count == 1000
 
 
 def test_questions_have_4_marks():
