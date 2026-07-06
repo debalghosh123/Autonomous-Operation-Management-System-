@@ -155,11 +155,24 @@ function setupNavigation() {
             e.preventDefault();
             const answered = document.querySelectorAll('.dot.answered').length;
             if (answered < totalQuestions) {
-                if (!confirm(`You have answered ${answered}/${totalQuestions} questions. Are you sure you want to submit?`)) {
-                    return;
-                }
+                showConfirm(
+                    'You have answered ' + answered + '/' + totalQuestions + ' questions. Are you sure you want to submit?',
+                    'Submit Exam'
+                ).then(function(confirmed) {
+                    if (confirmed) {
+                        submitExam();
+                    }
+                });
+            } else {
+                showConfirm(
+                    'You have answered all questions. Ready to submit your exam?',
+                    'Submit Exam'
+                ).then(function(confirmed) {
+                    if (confirmed) {
+                        submitExam();
+                    }
+                });
             }
-            submitExam();
         });
     }
 }

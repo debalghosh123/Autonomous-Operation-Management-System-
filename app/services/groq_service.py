@@ -140,7 +140,7 @@ End with honest encouragement. Tell them exactly what stands between them and pr
 Keep it professional, specific, and actionable. No generic advice. This feedback should TRANSFORM their learning path."""
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=12.0) as client:
             response = await client.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
