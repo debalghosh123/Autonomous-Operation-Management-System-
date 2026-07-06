@@ -3,8 +3,7 @@ Career Lab Consulting - Exam Router
 Handles exam flow: start, questions, submit, results
 """
 import os
-import asyncio
-from fastapi import APIRouter, Request, Form, HTTPException
+from fastapi import APIRouter, Request, Form, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
@@ -16,26 +15,8 @@ from app.services.whatsapp_service import send_whatsapp_notification
 from app.utils.helpers import calculate_percentage, is_passed
 
 
-async def _send_email_safe(email, name, score, total, percentage, passed):
-    """Fire-and-forget email sender that never raises."""
-    try:
-        result = await send_result_email(email, name, score, total, percentage, passed)
-        print(f"[Email] {'Sent' if result else 'Failed'} to {email}")
-    except Exception as e:
-        print(f"[Email] Error: {e}")
-
-
-async def _send_whatsapp_safe(phone, name, score, total, percentage, passed):
-    """Fire-and-forget WhatsApp sender that never raises."""
-    try:
-        await send_whatsapp_notification(phone, name, score, total, percentage, passed)
-        print(f"[WhatsApp] Sent to {phone}")
-    except Exception as e:
-        print(f"[WhatsApp] Error: {e}")
-
-
-async def _schedule_followup_safe(candidate_id, candidate_name):
-    """Fire-and-forget follow-up notification scheduler that never raises."""
+def _schedule_followup(candidate_id, candidate_name):
+    """Schedule a 7-day follow-up notification for failed candidates."""
     try:
         follow_up_date = datetime.now() + timedelta(days=7)
         with get_db() as db:
@@ -162,7 +143,7 @@ async def get_questions(request: Request, exam_id: int):
 
 
 @router.post("/submit/{exam_id}")
-async def submit_exam(request: Request, exam_id: int):
+async def submit_exam(request: Request, exam_id: int, background_tasks: BackgroundTasks):
     """Submit exam answers and calculate results."""
     form_data = await request.form()
 
@@ -257,20 +238,20 @@ async def submit_exam(request: Request, exam_id: int):
             ("exam_completed", f"Candidate {candidate['name']} scored {score}/{settings.TOTAL_MARKS} ({percentage}%)"),
         )
 
-    # Fire-and-forget notifications (non-blocking - don't delay redirect)
-    asyncio.ensure_future(_send_email_safe(
-        candidate["email"], candidate["name"],
+    # Schedule notifications via BackgroundTasks (guaranteed to run after response)
+    background_tasks.add_task(
+        send_result_email, candidate["email"], candidate["name"],
         score, settings.TOTAL_MARKS, percentage, passed
-    ))
+    )
 
     if not passed:
-        asyncio.ensure_future(_schedule_followup_safe(candidate["id"], candidate["name"]))
+        background_tasks.add_task(_schedule_followup, candidate["id"], candidate["name"])
 
     if candidate["phone"]:
-        asyncio.ensure_future(_send_whatsapp_safe(
-            candidate["phone"], candidate["name"],
+        background_tasks.add_task(
+            send_whatsapp_notification, candidate["phone"], candidate["name"],
             score, settings.TOTAL_MARKS, percentage, passed
-        ))
+        )
 
     return RedirectResponse(url=f"/exam/result/{exam_id}", status_code=303)
 

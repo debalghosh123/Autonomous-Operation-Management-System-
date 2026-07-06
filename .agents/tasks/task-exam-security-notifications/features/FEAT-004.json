@@ -1,0 +1,24 @@
+{
+  "id": "FEAT-004",
+  "type": "fix",
+  "description": "Replace asyncio.ensure_future() with FastAPI BackgroundTasks to fix email notifications being cancelled on Render free tier before they complete.",
+  "status": "completed",
+  "steps": [
+    "In app/routers/exam.py, add BackgroundTasks import from fastapi and add background_tasks parameter to submit_exam.",
+    "Replace asyncio.ensure_future() calls with background_tasks.add_task() calls.",
+    "Convert _schedule_followup_safe to a sync function since it only uses sync get_db().",
+    "Remove the _send_email_safe, _send_whatsapp_safe, _schedule_followup_safe async wrappers and replace with simpler versions compatible with BackgroundTasks.",
+    "Remove import asyncio if no longer used."
+  ],
+  "acceptance_criteria": [
+    "submit_exam uses BackgroundTasks parameter instead of asyncio.ensure_future",
+    "Email, WhatsApp, and follow-up notifications are scheduled via background_tasks.add_task",
+    "No asyncio.ensure_future calls remain in exam.py",
+    "All existing tests continue to pass"
+  ],
+  "verification": [
+    "cd /projects/sandbox/Autonomous-Operation-Management-System- && python -m pytest tests/ -q"
+  ],
+  "blocked_reason": null,
+  "findings": "All 37 tests pass. Replaced asyncio.ensure_future with FastAPI BackgroundTasks in submit_exam. Removed 3 async wrapper functions (_send_email_safe, _send_whatsapp_safe, _schedule_followup_safe). Created sync _schedule_followup function. BackgroundTasks guarantees execution after response is sent, preventing task cancellation on Render free tier."
+}
