@@ -149,3 +149,80 @@ async def send_result_email(to_email: str, candidate_name: str, score: int,
     except Exception as e:
         print(f"[Email] Error sending to {to_email}: {e}")
         return False
+
+
+def _build_followup_email(candidate_name: str) -> str:
+    """Build an encouraging 7-day follow-up email reminding candidates they can retake the exam."""
+    return f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; background-color: #1a1a2e; color: #eaeaea; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #16213e 0%, #1a1a3e 100%); border-radius: 12px; padding: 35px; border: 1px solid #00d4ff;">
+            <h1 style="color: #00d4ff; text-align: center; font-size: 24px;">Career Lab Consulting</h1>
+            <h2 style="color: #ffffff; text-align: center; font-size: 20px;">We Believe In You!</h2>
+            <hr style="border-color: #00d4ff; margin: 25px 0;">
+            <p style="font-size: 16px; line-height: 1.8;">Dear <strong>{candidate_name}</strong>,</p>
+            <p style="font-size: 16px; line-height: 1.8;">
+                It has been a week since your last Python Evaluation attempt, and we wanted to reach out
+                and let you know that we are still rooting for you! Growth takes time, and every step
+                forward counts.
+            </p>
+            <p style="font-size: 16px; line-height: 1.8;">
+                We encourage you to give the evaluation another try when you feel ready. Here are a few
+                tips to help you prepare:
+            </p>
+            <ul style="font-size: 15px; line-height: 2; color: #cccccc;">
+                <li>Review Python fundamentals and OOP concepts</li>
+                <li>Practice with real-world coding challenges</li>
+                <li>Focus on AI agent development patterns and frameworks</li>
+                <li>Revisit topics where you felt less confident</li>
+            </ul>
+            <div style="background: #0f3460; border-radius: 10px; padding: 20px; margin: 25px 0; text-align: center;">
+                <p style="font-size: 17px; color: #00ff88; margin: 0; font-weight: bold;">
+                    You are eligible to retake the exam now!
+                </p>
+                <p style="color: #aaa; margin-top: 10px; font-size: 14px;">
+                    Log in to the evaluation system to start your next attempt.
+                </p>
+            </div>
+            <p style="font-size: 16px; line-height: 1.8;">
+                Remember, persistence is the key to success. Many of our top candidates
+                succeeded on their second or third attempt. Your next try could be the one!
+            </p>
+            <p style="font-size: 16px; line-height: 1.8;">
+                Wishing you the very best,<br>
+                <strong style="color: #00d4ff;">The Career Lab Consulting Team</strong>
+            </p>
+            <p style="color: #888; font-size: 12px; margin-top: 30px; text-align: center;">
+                Career Lab Consulting - Empowering Careers, Building Futures
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+
+async def send_followup_email(to_email: str, candidate_name: str) -> bool:
+    """Send 7-day follow-up email encouraging the candidate to retake the exam."""
+    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+        print(f"[Email] Would send follow-up to {to_email}: Encouraging {candidate_name} to retake exam")
+        return False
+
+    subject = "We're Still Rooting For You! - Career Lab Consulting"
+    html_body = _build_followup_email(candidate_name)
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = settings.FROM_EMAIL
+        msg["To"] = to_email
+        msg.attach(MIMEText(html_body, "html"))
+
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+            server.starttls()
+            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            server.send_message(msg)
+
+        return True
+    except Exception as e:
+        print(f"[Email] Error sending follow-up to {to_email}: {e}")
+        return False
