@@ -3,11 +3,11 @@ Career Lab Consulting - Application Constants
 """
 
 # Exam Configuration
-TOTAL_QUESTIONS = 25
+TOTAL_QUESTIONS = 50
 MARKS_PER_QUESTION = 4
-TOTAL_MARKS = 100
+TOTAL_MARKS = 200
 PASSING_PERCENTAGE = 90.0
-EXAM_DURATION_MINUTES = 60
+EXAM_DURATION_MINUTES = 50
 
 # Question Difficulties
 DIFFICULTY_EASY = "easy"
