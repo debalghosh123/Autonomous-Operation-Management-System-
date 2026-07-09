@@ -168,27 +168,176 @@ Keep it professional, specific, and actionable. No generic advice. This feedback
 
 def _generate_fallback_feedback(score: int, total_marks: int, percentage: float,
                                  topic_performance: dict) -> str:
-    """Generate fallback feedback when AI is unavailable."""
-    status = "PASSED" if percentage >= 90 else "FAILED"
+    """Generate enterprise-grade evaluation feedback report."""
 
-    feedback = f"""
-## Python Evaluation Results - Career Lab Consulting
-
-### Performance Summary
-You scored {score}/{total_marks} ({percentage:.1f}%). Status: {status}
-
-### Topic-wise Performance
-"""
-    for topic, data in topic_performance.items():
-        emoji = "+" if data.get("percentage", 0) >= 75 else "-"
-        feedback += f"  {emoji} {topic.replace('_', ' ').title()}: {data.get('correct', 0)}/{data.get('total', 0)}\n"
-
+    # Determine production readiness level
     if percentage >= 90:
-        feedback += "\n### Congratulations!\nYou have qualified the Python evaluation. Welcome to Career Lab Consulting!"
+        readiness = "Senior Developer"
+        verdict = "QUALIFIED - Production Ready"
+    elif percentage >= 75:
+        readiness = "Mid-Level Developer"
+        verdict = "NOT QUALIFIED - Close to Target"
+    elif percentage >= 50:
+        readiness = "Junior Developer"
+        verdict = "NOT QUALIFIED - Significant Gaps"
+    elif percentage >= 30:
+        readiness = "Trainee Level"
+        verdict = "NOT QUALIFIED - Major Development Needed"
     else:
-        feedback += "\n### Recommendations\nPlease review the topics where you scored below average and attempt again."
+        readiness = "Not Production Ready"
+        verdict = "NOT QUALIFIED - Fundamental Gaps"
 
-    return feedback
+    # Topic study mapping
+    study_guide = {
+        "ai_agent_patterns": "ReAct framework, tool use patterns, LangChain chains, Pydantic validation, memory systems, prompt engineering",
+        "functions_scope": "Decorators, closures, generators, *args/**kwargs, lambda functions, higher-order functions",
+        "apis_requests": "REST API design, authentication (OAuth, API keys), error handling, rate limiting, pagination",
+        "oop_advanced": "Design patterns (Factory, Observer, Strategy), metaclasses, abstract classes, SOLID principles",
+        "async_programming": "asyncio event loop, coroutines, aiohttp, concurrent.futures, async generators",
+        "file_io_errors": "Context managers, custom exceptions, logging, file streaming, JSON/CSV processing",
+        "oop_basics": "Class design, __init__, inheritance, encapsulation, composition vs inheritance",
+        "dictionaries_json": "Nested data manipulation, JSON schema validation, defaultdict, API response parsing",
+        "pandas": "DataFrame operations, groupby, merge/join, pivot tables, data cleaning pipelines",
+        "web_scraping": "BeautifulSoup selectors, pagination handling, data extraction patterns, ethical scraping",
+        "lists_tuples_sets": "List comprehensions, set operations, tuple unpacking, deque, performance",
+        "control_flow": "Pattern matching, guard clauses, state machines, decision trees",
+        "loops": "Generator expressions, itertools, enumerate patterns, lazy evaluation",
+        "variables_datatypes": "Type hints, dataclasses, enums, type coercion, memory model",
+        "strings": "Regex patterns, text processing pipelines, encoding, template engines",
+        "regex": "Named groups, lookahead/lookbehind, text extraction, URL/email parsing",
+        "modules_packages": "Package architecture, __init__.py, relative imports, namespace packages",
+        "python_setup": "Virtual environments, dependency management, project structure",
+    }
+
+    # Categorize topics
+    strengths = []
+    weaknesses = []
+    for topic, data in sorted(topic_performance.items(), key=lambda x: -x[1].get("percentage", 0)):
+        pct = data.get("percentage", 0)
+        if pct >= 75:
+            strengths.append((topic, data))
+        else:
+            weaknesses.append((topic, data))
+
+    # Build report
+    report = f"""
+{'=' * 55}
+  CAREER LAB CONSULTING - EVALUATION REPORT
+{'=' * 55}
+
+EXECUTIVE SUMMARY
+{'-' * 55}
+Score: {score}/{total_marks} ({percentage:.1f}%)
+Status: {verdict}
+Production Readiness: {readiness}
+Questions Attempted: {sum(d.get('total', 0) for d in topic_performance.values())}
+Correct Answers: {sum(d.get('correct', 0) for d in topic_performance.values())}
+Passing Threshold: 90%
+
+
+CORE COMPETENCIES ASSESSMENT
+{'-' * 55}
+"""
+    for topic, data in sorted(topic_performance.items(), key=lambda x: -x[1].get("percentage", 0)):
+        pct = data.get("percentage", 0)
+        correct = data.get("correct", 0)
+        total = data.get("total", 0)
+        if pct >= 90:
+            level = "EXPERT"
+        elif pct >= 75:
+            level = "PROFICIENT"
+        elif pct >= 50:
+            level = "DEVELOPING"
+        else:
+            level = "NEEDS IMPROVEMENT"
+        topic_name = topic.replace('_', ' ').title()
+        report += f"  {topic_name}: {correct}/{total} ({pct:.0f}%) - {level}\n"
+
+    if strengths:
+        report += f"""
+
+STRENGTHS IDENTIFIED
+{'-' * 55}
+"""
+        for topic, data in strengths:
+            topic_name = topic.replace('_', ' ').title()
+            pct = data.get("percentage", 0)
+            report += f"  + {topic_name} ({pct:.0f}%)\n"
+            report += f"    Strong foundation in: {study_guide.get(topic, 'General Python')}\n\n"
+
+    if weaknesses:
+        report += f"""
+AREAS FOR IMPROVEMENT
+{'-' * 55}
+"""
+        for topic, data in weaknesses:
+            topic_name = topic.replace('_', ' ').title()
+            pct = data.get("percentage", 0)
+            correct = data.get("correct", 0)
+            total = data.get("total", 0)
+            report += f"  - {topic_name}: {correct}/{total} ({pct:.0f}%)\n"
+            report += f"    Must study: {study_guide.get(topic, 'Review fundamentals')}\n\n"
+
+        report += f"""
+DETAILED STUDY PLAN
+{'-' * 55}
+"""
+        for i, (topic, data) in enumerate(weaknesses, 1):
+            topic_name = topic.replace('_', ' ').title()
+            pct = data.get("percentage", 0)
+            guide = study_guide.get(topic, "Review core concepts")
+            report += f"  Priority {i}: {topic_name}\n"
+            report += f"  Current Level: {pct:.0f}% | Target: 90%+\n"
+            report += f"  Key Concepts: {guide}\n"
+            if pct < 30:
+                report += f"  Approach: Start from basics, work through tutorials, build mini-projects\n"
+            elif pct < 60:
+                report += f"  Approach: Practice with coding challenges, implement real-world scenarios\n"
+            else:
+                report += f"  Approach: Focus on edge cases, advanced patterns, production best practices\n"
+            report += "\n"
+
+    report += f"""
+14-DAY IMPROVEMENT ROADMAP
+{'-' * 55}
+  Week 1 (Days 1-7): Foundation Building
+    - Days 1-2: Review weakest topics (concepts + documentation)
+    - Days 3-4: Hands-on coding exercises for each weak area
+    - Days 5-7: Build a mini-project combining 2-3 weak topics
+
+  Week 2 (Days 8-14): Advanced Practice
+    - Days 8-9: Timed practice problems (simulate exam conditions)
+    - Days 10-11: Build an AI agent using Python (end-to-end)
+    - Days 12-13: Code review and optimization of your projects
+    - Day 14: Mock exam attempt before official reattempt
+
+
+NEXT STEPS
+{'-' * 55}
+"""
+    if percentage >= 90:
+        report += """  Congratulations! You have QUALIFIED.
+  Our team will reach out to you shortly regarding the next stage.
+  Welcome to Career Lab Consulting!
+"""
+    else:
+        report += f"""  1. Review the study plan above carefully
+  2. Focus on your {len(weaknesses)} weak area(s) first
+  3. Practice daily for at least 2 hours
+  4. You may reattempt the evaluation after 14 days
+  5. A follow-up email will be sent in 7 days with additional guidance
+
+  Remember: Every expert was once a beginner. Your dedication to
+  improvement is what matters most. We believe in your potential.
+"""
+
+    report += f"""
+{'=' * 55}
+  Career Lab Consulting | Python Evaluation System
+  Report generated automatically | Confidential
+{'=' * 55}
+"""
+    return report
 
 
 async def generate_voice_response(command: str) -> str:
