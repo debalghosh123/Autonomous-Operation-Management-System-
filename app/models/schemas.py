@@ -50,7 +50,7 @@ class ExamResult(BaseModel):
     percentage: float
     passed: bool
     ai_feedback: Optional[str] = None
-    total_questions: int = 25
+    total_questions: int = 50
     correct_answers: int = 0
 
 
