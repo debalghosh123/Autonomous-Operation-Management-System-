@@ -272,29 +272,24 @@ def test_follow_up_notification_created_on_failure():
     start_response = test_client.get(f"/exam/start/{candidate_id}")
     assert start_response.status_code == 200
 
-    # Get the exam_id from the database
-    with get_db() as db:
-        exam = db.execute(
-            "SELECT id FROM exams WHERE candidate_id = ? ORDER BY id DESC LIMIT 1",
-            (candidate_id,)
-        ).fetchone()
-        exam_id = exam["id"]
-
-        # Insert questions for this exam so submission can be scored
-        db.execute(
-            """INSERT INTO ai_questions (exam_id, question_number, question_text,
-               option_a, option_b, option_c, option_d, correct_answer, difficulty, topic, marks)
-               VALUES (?, 1, 'Test question?', 'A answer', 'B answer', 'C answer', 'D answer', 'A', 'advanced', 'python', 4)""",
-            (exam_id,)
-        )
-
-    # Submit the exam with wrong answers (to guarantee failure)
+    # Submit the exam using the new serverless-safe endpoint with hidden fields
+    # Submit with wrong answers to guarantee failure
     submit_response = test_client.post(
-        f"/exam/submit/{exam_id}",
-        data={"question_1": "B"},  # Wrong answer (correct is A)
+        "/exam/submit",
+        data={
+            "total_questions": "1",
+            "candidate_name": "Notification Tester",
+            "candidate_email": "notify_test@example.com",
+            "candidate_phone": "+3333333333",
+            "correct_1": "A",
+            "topic_1": "python",
+            "marks_1": "4",
+            "question_1": "B",  # Wrong answer (correct is A)
+        },
         follow_redirects=False,
     )
-    assert submit_response.status_code == 303
+    assert submit_response.status_code == 200  # Direct render (no redirect)
+    assert "NOT QUALIFIED" in submit_response.text or "Improvement Needed" in submit_response.text
 
     # Verify a follow_up_7day notification was created
     with get_db() as db:

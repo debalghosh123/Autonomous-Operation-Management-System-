@@ -28,7 +28,18 @@
         </div>
     </div>
 
-    <form action="/exam/submit/{{ exam_id }}" method="POST" id="exam-form">
+    <form action="/exam/submit" method="POST" id="exam-form">
+        <!-- Hidden inputs for serverless-safe scoring (no cross-request DB needed) -->
+        <input type="hidden" name="total_questions" value="{{ total_questions }}">
+        <input type="hidden" name="candidate_name" value="{{ candidate.name }}">
+        <input type="hidden" name="candidate_email" value="{{ candidate.email }}">
+        <input type="hidden" name="candidate_phone" value="{{ candidate.phone or '' }}">
+        {% for question in questions %}
+        <input type="hidden" name="correct_{{ loop.index }}" value="{{ question.correct_answer }}">
+        <input type="hidden" name="topic_{{ loop.index }}" value="{{ question.topic }}">
+        <input type="hidden" name="marks_{{ loop.index }}" value="{{ question.marks }}">
+        {% endfor %}
+
         <div class="questions-wrapper">
             {% for question in questions %}
             <div class="question-card {% if loop.first %}active{% endif %}" 

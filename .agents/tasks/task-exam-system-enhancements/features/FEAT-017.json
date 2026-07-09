@@ -1,0 +1,15 @@
+{
+  "id": "FEAT-017",
+  "title": "Fix serverless exam submission - eliminate cross-request DB dependency",
+  "status": "in_progress",
+  "description": "On Vercel serverless, /tmp SQLite is not shared between requests. The submit endpoint fails with 'Exam not found' because it looks up an exam_id in a DB that no longer exists. Fix: embed correct answers, topics, and candidate info as hidden form fields, score from form data, and render results directly.",
+  "acceptance_criteria": [
+    "Hidden inputs added for correct_answer, topic, total_questions, candidate info",
+    "Form action changed to /exam/submit (no exam_id needed)",
+    "get_questions selects from in-memory QUESTION_BANK instead of DB",
+    "submit_exam scores entirely from form data hidden fields",
+    "submit_exam renders exam_result.html directly instead of redirecting",
+    "Background email tasks still work",
+    "All existing tests pass or are updated appropriately"
+  ]
+}
