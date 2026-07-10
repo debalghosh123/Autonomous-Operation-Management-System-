@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{% if passed %}Qualified{% else %}Evaluation Report{% endif %} - Career Lab Consulting{% endblock %}
+{% block title %}{% if terminated is defined and terminated %}Exam Terminated{% elif passed %}Qualified{% else %}Evaluation Report{% endif %} - Career Lab Consulting{% endblock %}
 
 {% block head %}
 <style>
@@ -124,6 +124,36 @@
 {% block content %}
 <div class="result-page">
 <div class="container">
+
+    {% if terminated is defined and terminated %}
+    <!-- Exam Terminated Banner -->
+    <div class="result-hero failed" style="border-color: rgba(239,68,68,0.4); background: linear-gradient(180deg, rgba(239,68,68,0.12) 0%, var(--card-bg, #1a2332) 100%);">
+        <div class="trophy-wrap failed">
+            <div class="trophy-glow" style="background: radial-gradient(circle, rgba(239,68,68,0.3), transparent 70%);"></div>
+            <i class="fas fa-ban" style="color: #ef4444; text-shadow: 0 0 40px rgba(239,68,68,0.5);"></i>
+        </div>
+        <h1 style="color: #ef4444;">Exam Terminated</h1>
+        <p class="subtitle">Your exam has been automatically cancelled due to <strong>repeated proctoring violations</strong>.</p>
+        <span class="status-pill fail" style="background: rgba(239,68,68,0.12); color: #ef4444; border-color: rgba(239,68,68,0.3);"><i class="fas fa-exclamation-triangle"></i> Disqualified</span>
+        <div style="margin-top: 24px; padding: 20px; background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); border-radius: 12px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+            <p style="color: #f87171; font-weight: 600; margin-bottom: 8px;"><i class="fas fa-info-circle"></i> Why was your exam terminated?</p>
+            <p style="color: #94a3b8; font-size: 14px; line-height: 1.6;">You exceeded the maximum allowed warnings (4) for switching away from the exam window. This is flagged as potential malpractice. Your score has been recorded as 0.</p>
+            <p style="color: #94a3b8; font-size: 14px; line-height: 1.6; margin-top: 8px;">If you believe this was an error, please contact the administrator.</p>
+        </div>
+    </div>
+
+    <!-- Buttons for terminated exam -->
+    <div class="result-btns" style="margin-top: 32px;">
+        <a href="/" class="btn btn-primary"><i class="fas fa-home"></i> Back to Home</a>
+        <a href="/register" class="btn btn-outline"><i class="fas fa-redo"></i> Register for Retake</a>
+    </div>
+
+    <div class="brand-footer">
+        <p><strong>Career Lab Consulting</strong> &bull; Gurugram, India &bull; AI-Powered Python Evaluation System</p>
+    </div>
+
+    {% else %}
+    <!-- Normal result display -->
 
     <!-- Hero -->
     <div class="result-hero {% if passed %}passed{% else %}failed{% endif %}">
@@ -321,6 +351,8 @@
     <div class="brand-footer">
         <p><strong>Career Lab Consulting</strong> • Gurugram, India • AI-Powered Python Evaluation System</p>
     </div>
+
+    {% endif %}
 
 </div>
 </div>

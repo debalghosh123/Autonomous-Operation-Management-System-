@@ -144,6 +144,7 @@ async def submit_exam(request: Request, background_tasks: BackgroundTasks):
     candidate_name = form_data.get("candidate_name", "")
     candidate_email = form_data.get("candidate_email", "")
     candidate_phone = form_data.get("candidate_phone", "")
+    terminated = form_data.get("terminated", "0") == "1"
 
     score = 0
     topic_performance = {}
@@ -178,11 +179,21 @@ async def submit_exam(request: Request, background_tasks: BackgroundTasks):
         t = topic_performance[topic]
         t["percentage"] = round((t["correct"] / t["total"]) * 100, 1) if t["total"] > 0 else 0
 
-    percentage = calculate_percentage(score, settings.TOTAL_MARKS)
-    passed = is_passed(percentage, settings.PASSING_PERCENTAGE)
-
-    # Generate feedback
-    ai_feedback = _generate_fallback_feedback(score, settings.TOTAL_MARKS, percentage, topic_performance)
+    # If exam was terminated due to proctoring violations, override score
+    if terminated:
+        score = 0
+        percentage = 0.0
+        passed = False
+        ai_feedback = ("EXAM TERMINATED: This exam was automatically cancelled due to repeated "
+                       "proctoring violations (exceeded maximum allowed warnings). The candidate "
+                       "switched away from the exam window too many times, indicating potential "
+                       "malpractice. Score has been set to 0. The candidate may contact the "
+                       "administrator to discuss next steps.")
+    else:
+        percentage = calculate_percentage(score, settings.TOTAL_MARKS)
+        passed = is_passed(percentage, settings.PASSING_PERCENTAGE)
+        # Generate feedback
+        ai_feedback = _generate_fallback_feedback(score, settings.TOTAL_MARKS, percentage, topic_performance)
 
     # Try to persist results in DB (best-effort, may fail on serverless)
     exam_id = None
@@ -206,9 +217,12 @@ async def submit_exam(request: Request, background_tasks: BackgroundTasks):
                 exam_id = cursor.lastrowid
 
                 # Log action
+                action_detail = f"Candidate {candidate_name} scored {score}/{settings.TOTAL_MARKS} ({percentage}%)"
+                if terminated:
+                    action_detail = f"TERMINATED: Candidate {candidate_name} exam auto-cancelled due to proctoring violations"
                 db.execute(
                     "INSERT INTO admin_logs (action, details) VALUES (?, ?)",
-                    ("exam_completed", f"Candidate {candidate_name} scored {score}/{settings.TOTAL_MARKS} ({percentage}%)"),
+                    ("exam_terminated" if terminated else "exam_completed", action_detail),
                 )
     except Exception as e:
         print(f"[Exam] DB persistence failed (serverless expected): {e}")
@@ -238,6 +252,7 @@ async def submit_exam(request: Request, background_tasks: BackgroundTasks):
         "passed": 1 if passed else 0,
         "ai_feedback": ai_feedback,
         "completed_at": datetime.now().isoformat(),
+        "terminated": 1 if terminated else 0,
     }
 
     candidate_data = {
@@ -255,6 +270,7 @@ async def submit_exam(request: Request, background_tasks: BackgroundTasks):
         "passed": passed,
         "passing_percentage": settings.PASSING_PERCENTAGE,
         "topic_performance": topic_performance,
+        "terminated": terminated,
     })
 
 

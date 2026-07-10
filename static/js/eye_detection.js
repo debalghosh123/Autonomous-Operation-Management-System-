@@ -2,11 +2,13 @@
  * Career Lab Consulting - Proctoring System
  * ULTRA-SIMPLE: Uses ONLY browser focus events.
  * Every single alt-tab/tab-switch = one warning. Period.
+ * After MAX_WARNINGS violations, the exam is auto-terminated.
  */
 
 var warningCount = 0;
-var MAX_WARNINGS = 5;
+var MAX_WARNINGS = 4;
 var warningVisible = false;
+var examTerminated = false;
 
 function initEyeDetection(videoElement) {
     console.log('[PROCTORING] System initialized');
@@ -29,6 +31,7 @@ function initEyeDetection(videoElement) {
 }
 
 function showProctoringWarning(message) {
+    if (examTerminated) return;
     if (warningCount >= MAX_WARNINGS) return;
     if (warningVisible) return;
     
@@ -45,9 +48,9 @@ function showProctoringWarning(message) {
     }
     if (textEl) {
         if (warningCount >= MAX_WARNINGS) {
-            textEl.textContent = 'CRITICAL: Too many violations! Your exam may be invalidated.';
+            textEl.textContent = 'EXAM TERMINATED: Too many violations! Your exam has been automatically cancelled.';
         } else {
-            textEl.textContent = message + ' Please maintain focus on the exam.';
+            textEl.textContent = message + ' Please maintain focus on the exam. (' + warningCount + '/' + MAX_WARNINGS + ' warnings)';
         }
     }
     if (counterEl) {
@@ -62,6 +65,26 @@ function showProctoringWarning(message) {
         setTimeout(function() {
             notification.classList.remove('show');
         }, 4000);
+    }
+    
+    // Check if max warnings reached - auto-terminate the exam
+    if (warningCount >= MAX_WARNINGS) {
+        examTerminated = true;
+        console.log('[PROCTORING] MAX WARNINGS REACHED - AUTO-TERMINATING EXAM');
+        // Set the terminated flag in the form
+        var terminatedFlag = document.getElementById('terminated-flag');
+        if (terminatedFlag) {
+            terminatedFlag.value = '1';
+        }
+        // Auto-submit after a brief delay so candidate sees the termination message
+        setTimeout(function() {
+            if (typeof submitExam === 'function') {
+                submitExam();
+            } else {
+                document.getElementById('exam-form').submit();
+            }
+        }, 2000);
+        return;
     }
     
     // Auto-hide after 5 seconds, then allow next warning

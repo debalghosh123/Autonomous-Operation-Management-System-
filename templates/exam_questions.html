@@ -34,6 +34,7 @@
         <input type="hidden" name="candidate_name" value="{{ candidate.name }}">
         <input type="hidden" name="candidate_email" value="{{ candidate.email }}">
         <input type="hidden" name="candidate_phone" value="{{ candidate.phone or '' }}">
+        <input type="hidden" name="terminated" value="0" id="terminated-flag">
         {% for question in questions %}
         <input type="hidden" name="correct_{{ loop.index }}" value="{{ question.correct_answer }}">
         <input type="hidden" name="topic_{{ loop.index }}" value="{{ question.topic }}">
@@ -133,7 +134,7 @@
     <div class="eye-warning-modal">
         <i class="fas fa-eye-slash"></i>
         <p id="eye-warning-text">Please look at the screen. Maintain eye contact during the exam.</p>
-        <span class="eye-warning-count" id="eye-warning-count">Warnings: 0/5</span>
+        <span class="eye-warning-count" id="eye-warning-count">Warnings: 0/4</span>
     </div>
 </div>
 
