@@ -144,6 +144,7 @@
     margin-bottom: 1.5rem;
     line-height: 1.6;
     color: var(--text-primary);
+    white-space: pre-wrap;
 }
 
 /* Options */
