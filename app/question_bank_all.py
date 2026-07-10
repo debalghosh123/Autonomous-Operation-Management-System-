@@ -13,3 +13,6 @@ from app.question_bank_9 import QUESTIONS as _q9
 from app.question_bank_10 import QUESTIONS as _q10
 
 ALL_QUESTIONS = _q1 + _q2 + _q3 + _q4 + _q5 + _q6 + _q7 + _q8 + _q9 + _q10
+
+# Backwards-compatible alias used by app/routers/exam.py
+QUESTION_BANK = ALL_QUESTIONS
